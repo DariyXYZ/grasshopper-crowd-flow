@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net48;net7.0;net8.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RhinoCommon" />
+    <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
+    <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
+  </ItemGroup>
+</Project>

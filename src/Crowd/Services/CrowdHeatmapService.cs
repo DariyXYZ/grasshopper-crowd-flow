@@ -1,0 +1,298 @@
+using Crowd.Models;
+using Crowd.Utilities;
+using Rhino.Geometry;
+using System.Drawing;
+
+namespace Crowd.Services;
+
+public static class CrowdHeatmapService
+{
+    /// <summary>
+    /// Builds a colored mesh heatmap from simulated crowd positions.
+    /// Samples occupancy on the same routing grid used by the solver, smooths the scalar field, and colors a quad mesh for visualization.
+    /// </summary>
+    /// <param name="result">Simulation result containing frames and the original crowd model.</param>
+    /// <param name="smoothingPasses">Number of scalar-field smoothing passes.</param>
+    /// <param name="heightScale">Optional Z offset scale for turning a flat heatmap into a relief mesh.</param>
+    /// <returns>Colored mesh heatmap plus per-cell scalar values.</returns>
+    public static CrowdHeatmapResult Build(
+        CrowdSimulationResult result,
+        string mode,
+        int smoothingPasses,
+        double heightScale,
+        bool normalizeByFrameCount)
+    {
+        if (result == null)
+        {
+            throw new ArgumentNullException(nameof(result));
+        }
+
+        CrowdGrid grid = new(result.Model.Floor, result.Model.Obstacles);
+        string safeMode = string.IsNullOrWhiteSpace(mode) ? "Occupancy" : mode.Trim();
+        double[,] occupancy = new double[grid.Width, grid.Height];
+        double[,] flow = new double[grid.Width, grid.Height];
+        double[,] speedSum = new double[grid.Width, grid.Height];
+        double[,] speedCount = new double[grid.Width, grid.Height];
+
+        for (int frameIndex = 0; frameIndex < result.Frames.Count; frameIndex++)
+        {
+            CrowdFrame frame = result.Frames[frameIndex];
+            foreach (Point3d position in frame.ActivePositions)
+            {
+                if (!grid.TryGetClosestWalkableCell(position, out int x, out int y))
+                {
+                    continue;
+                }
+
+                occupancy[x, y] += result.Model.TimeStep;
+            }
+
+            for (int i = 0; i < frame.ActivePositions.Count && i < frame.ActiveSpeeds.Count; i++)
+            {
+                if (!grid.TryGetClosestWalkableCell(frame.ActivePositions[i], out int x, out int y))
+                {
+                    continue;
+                }
+
+                speedSum[x, y] += frame.ActiveSpeeds[i];
+                speedCount[x, y] += 1.0;
+            }
+        }
+
+        foreach (CrowdAgentPath path in result.AgentPaths)
+        {
+            if (path.Polyline == null || path.Polyline.Count < 2)
+            {
+                continue;
+            }
+
+            for (int i = 1; i < path.Polyline.Count; i++)
+            {
+                Point3d from = path.Polyline[i - 1];
+                Point3d to = path.Polyline[i];
+                double segmentLength = from.DistanceTo(to);
+                int samples = Math.Max(1, (int)Math.Ceiling(segmentLength / Math.Max(result.Model.Floor.CellSize * 0.5, 0.25)));
+                for (int sampleIndex = 0; sampleIndex <= samples; sampleIndex++)
+                {
+                    double t = samples == 0 ? 0.0 : (double)sampleIndex / samples;
+                    Point3d sample = new(
+                        from.X + ((to.X - from.X) * t),
+                        from.Y + ((to.Y - from.Y) * t),
+                        from.Z + ((to.Z - from.Z) * t));
+
+                    if (!grid.TryGetClosestWalkableCell(sample, out int x, out int y))
+                    {
+                        continue;
+                    }
+
+                    flow[x, y] += 1.0 / (samples + 1);
+                }
+            }
+        }
+
+        double[,] values = BuildModeField(safeMode, occupancy, flow, speedSum, speedCount, result, grid, normalizeByFrameCount);
+
+        for (int pass = 0; pass < Math.Max(0, smoothingPasses); pass++)
+        {
+            values = Smooth(values, grid);
+        }
+
+        double peak = GetPeak(values, grid);
+        double average = GetAverage(values, grid);
+        Mesh mesh = new();
+        List<Point3d> centers = new();
+        List<double> flatValues = new();
+
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                double cellValue = values[x, y];
+                Point3d center = grid.GetCellCenter(x, y);
+                centers.Add(center);
+                flatValues.Add(cellValue);
+
+                double normalized = peak <= 1e-9 ? 0.0 : cellValue / peak;
+                double z = heightScale * normalized;
+                double half = result.Model.Floor.CellSize * 0.5;
+
+                int a = mesh.Vertices.Add(center.X - half, center.Y - half, center.Z + z);
+                int b = mesh.Vertices.Add(center.X + half, center.Y - half, center.Z + z);
+                int c = mesh.Vertices.Add(center.X + half, center.Y + half, center.Z + z);
+                int d = mesh.Vertices.Add(center.X - half, center.Y + half, center.Z + z);
+                mesh.Faces.AddFace(a, b, c, d);
+
+                Color color = InterpolateHeatColor(normalized);
+                mesh.VertexColors.Add(color);
+                mesh.VertexColors.Add(color);
+                mesh.VertexColors.Add(color);
+                mesh.VertexColors.Add(color);
+            }
+        }
+
+        mesh.Normals.ComputeNormals();
+        mesh.Compact();
+
+        return new CrowdHeatmapResult(mesh, centers, flatValues, peak, average, safeMode);
+    }
+
+    private static double[,] BuildModeField(
+        string mode,
+        double[,] occupancy,
+        double[,] flow,
+        double[,] speedSum,
+        double[,] speedCount,
+        CrowdSimulationResult result,
+        CrowdGrid grid,
+        bool normalizeByFrameCount)
+    {
+        double[,] values = new double[grid.Width, grid.Height];
+        double frameDivisor = normalizeByFrameCount ? Math.Max(1, result.Frames.Count) : 1.0;
+
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                double averageSpeed = speedCount[x, y] <= 1e-9 ? 0.0 : speedSum[x, y] / speedCount[x, y];
+                double occupancyValue = occupancy[x, y] / frameDivisor;
+                double flowValue = flow[x, y] / frameDivisor;
+                double congestionValue = occupancyValue * (1.0 + Math.Max(0.0, result.Model.AgentProfile.PreferredSpeed - averageSpeed));
+
+                switch (mode.ToLowerInvariant())
+                {
+                    case "flow":
+                        values[x, y] = flowValue;
+                        break;
+                    case "speed":
+                        values[x, y] = averageSpeed;
+                        break;
+                    case "congestion":
+                        values[x, y] = congestionValue;
+                        break;
+                    default:
+                        values[x, y] = occupancyValue;
+                        break;
+                }
+            }
+        }
+
+        return values;
+    }
+
+    private static double[,] Smooth(double[,] values, CrowdGrid grid)
+    {
+        double[,] smoothed = new double[grid.Width, grid.Height];
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                double sum = 0.0;
+                double weightSum = 0.0;
+                for (int ox = -1; ox <= 1; ox++)
+                {
+                    for (int oy = -1; oy <= 1; oy++)
+                    {
+                        int nx = x + ox;
+                        int ny = y + oy;
+                        if (!grid.IsWalkable(nx, ny))
+                        {
+                            continue;
+                        }
+
+                        double weight = (ox == 0 && oy == 0) ? 0.4 : ((ox == 0 || oy == 0) ? 0.15 : 0.075);
+                        sum += values[nx, ny] * weight;
+                        weightSum += weight;
+                    }
+                }
+
+                smoothed[x, y] = weightSum <= 1e-9 ? values[x, y] : sum / weightSum;
+            }
+        }
+
+        return smoothed;
+    }
+
+    private static double GetPeak(double[,] values, CrowdGrid grid)
+    {
+        double peak = 0.0;
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                peak = Math.Max(peak, values[x, y]);
+            }
+        }
+
+        return peak;
+    }
+
+    private static double GetAverage(double[,] values, CrowdGrid grid)
+    {
+        double sum = 0.0;
+        int count = 0;
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                sum += values[x, y];
+                count++;
+            }
+        }
+
+        return count == 0 ? 0.0 : sum / count;
+    }
+
+    private static Color InterpolateHeatColor(double t)
+    {
+        t = Math.Max(0.0, Math.Min(1.0, t));
+        if (t < 0.25)
+        {
+            return Lerp(Color.FromArgb(24, 75, 217), Color.FromArgb(46, 196, 182), t / 0.25);
+        }
+
+        if (t < 0.5)
+        {
+            return Lerp(Color.FromArgb(46, 196, 182), Color.FromArgb(255, 230, 109), (t - 0.25) / 0.25);
+        }
+
+        if (t < 0.75)
+        {
+            return Lerp(Color.FromArgb(255, 230, 109), Color.FromArgb(255, 159, 28), (t - 0.5) / 0.25);
+        }
+
+        return Lerp(Color.FromArgb(255, 159, 28), Color.FromArgb(214, 40, 40), (t - 0.75) / 0.25);
+    }
+
+    private static Color Lerp(Color from, Color to, double t)
+    {
+        int r = (int)Math.Round(from.R + ((to.R - from.R) * t));
+        int g = (int)Math.Round(from.G + ((to.G - from.G) * t));
+        int b = (int)Math.Round(from.B + ((to.B - from.B) * t));
+        return Color.FromArgb(r, g, b);
+    }
+}

@@ -1,0 +1,28 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinning>true</CentralPackageTransitivePinning>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Grasshopper" Version="8.21.25188.17001" />
+    <PackageVersion Include="RhinoCommon" Version="8.21.25188.17001" />
+
+    <PackageVersion Include="System.Drawing.Common" Version="9.0.8" />
+    <PackageVersion Include="System.Resources.Extensions" Version="9.0.8" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageVersion Include="SunCalcNet" Version="1.2.3" />
+    <PackageVersion Include="System.Text.Json" Version="8.0.0" />
+    <PackageVersion Include="Google.Apis.Auth" Version="1.73.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageVersion Include="xunit" Version="2.7.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.8" />
+  </ItemGroup>
+
+  <!-- net48: for Rhino.Inside.Revit 2023 and standalone Rhino ≤8.10 -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
+    <PackageVersion Update="Grasshopper" Version="8.9.24194.18121" />
+    <PackageVersion Update="RhinoCommon" Version="8.9.24194.18121" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,23 @@
+.vs/
+.vscode/
+bin/
+obj/
+artifacts/
+dist/
+dist-yak/
+*.user
+*.rsuser
+*.suo
+*.cache
+*.log
+*.tmp
+*.pdb
+*.zip
+
+# Rhino and Grasshopper local outputs
+*.gha
+*.yak
+
+# OS noise
+Thumbs.db
+Desktop.ini
