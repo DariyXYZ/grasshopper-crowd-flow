@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdModelComponent : IndGhComponent
 {
     public CreateCrowdModelComponent()
-        : base("Create Crowd Model", "Model", "Combines floor, sources, obstacles, exits, and agent settings into a crowd model.", "GhCrowdFlow", "Crowd")
+        : base("Create Crowd Model", "Model", "Combines floor, sources, obstacles, exits, and agent settings into a crowd model.", "INDTools", "Crowd")
     {
     }
 
@@ -23,7 +23,7 @@ public sealed class CreateCrowdModelComponent : IndGhComponent
         pManager.AddGenericParameter("Sources", "S", "Crowd source objects.", GH_ParamAccess.list);
         pManager.AddGenericParameter("Exits", "E", "Crowd exit objects.", GH_ParamAccess.list);
         pManager.AddGenericParameter("Agent Profile", "P", "Optional crowd agent profile object.", GH_ParamAccess.list);
-        pManager.AddNumberParameter("Time Step", "T", "Simulation step in seconds.", GH_ParamAccess.list, 0.2);
+        pManager.AddNumberParameter("Time Step", "T", "Simulation step in seconds. Lower values improve steering stability in tight passages.", GH_ParamAccess.list, 0.1);
 
         pManager[1].Optional = true;
         pManager[4].Optional = true;
@@ -86,7 +86,7 @@ public sealed class CreateCrowdModelComponent : IndGhComponent
                 sources,
                 exits,
                 profile,
-                timeSteps.Count > 0 ? timeSteps[0] : 0.2);
+                timeSteps.Count > 0 ? timeSteps[0] : 0.1);
 
             DA.SetData(0, model);
         }

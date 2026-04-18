@@ -1,9 +1,13 @@
 using Crowd.Models;
+using Rhino.Geometry;
 
 namespace Crowd.Utilities;
 
 public static class CrowdPathFieldBuilder
 {
+    private const double BoundaryPenaltyDistanceFactor = 2.15;
+    private const double BoundaryPenaltyStrength = 0.72;
+
     private static readonly (int X, int Y)[] NeighborOffsets = new (int X, int Y)[]
     {
         (-1, -1), (-1, 0), (-1, 1),
@@ -44,13 +48,13 @@ public static class CrowdPathFieldBuilder
             return field;
         }
 
-        Queue<(int X, int Y)> queue = new();
+        MinOpenSet open = new();
         field[exitX, exitY] = 0.0;
-        queue.Enqueue((exitX, exitY));
+        open.Enqueue((exitX, exitY), 0.0);
 
-        while (queue.Count > 0)
+        while (open.Count > 0)
         {
-            (int currentX, int currentY) = queue.Dequeue();
+            (int currentX, int currentY) = open.Dequeue();
             double current = field[currentX, currentY];
 
             foreach ((int offsetX, int offsetY) in NeighborOffsets)
@@ -62,7 +66,18 @@ public static class CrowdPathFieldBuilder
                     continue;
                 }
 
+                Point3d nextCenter = grid.GetCellCenter(nextX, nextY);
                 double stepCost = (offsetX != 0 && offsetY != 0) ? Math.Sqrt(2.0) : 1.0;
+                double safeDistance = Math.Max(grid.Floor.CellSize * BoundaryPenaltyDistanceFactor, 1e-6);
+                double boundaryDistance = grid.GetBoundaryDistance(nextCenter);
+                double boundaryPenalty = 0.0;
+                if (!double.IsInfinity(boundaryDistance) && boundaryDistance < safeDistance)
+                {
+                    double closeness = 1.0 - (boundaryDistance / safeDistance);
+                    boundaryPenalty = closeness * BoundaryPenaltyStrength;
+                }
+
+                stepCost *= 1.0 + boundaryPenalty;
                 double candidate = current + stepCost;
                 if (candidate >= field[nextX, nextY])
                 {
@@ -70,7 +85,7 @@ public static class CrowdPathFieldBuilder
                 }
 
                 field[nextX, nextY] = candidate;
-                queue.Enqueue((nextX, nextY));
+                open.Enqueue((nextX, nextY), candidate);
             }
         }
 
@@ -103,5 +118,75 @@ public static class CrowdPathFieldBuilder
         }
 
         return (bestX, bestY);
+    }
+
+    private sealed class MinOpenSet
+    {
+        private readonly List<((int X, int Y) Cell, double Priority)> _items = new();
+
+        public int Count => _items.Count;
+
+        public void Enqueue((int X, int Y) cell, double priority)
+        {
+            _items.Add((cell, priority));
+            BubbleUp(_items.Count - 1);
+        }
+
+        public (int X, int Y) Dequeue()
+        {
+            (int X, int Y) result = _items[0].Cell;
+            int lastIndex = _items.Count - 1;
+            _items[0] = _items[lastIndex];
+            _items.RemoveAt(lastIndex);
+            if (_items.Count > 0)
+            {
+                BubbleDown(0);
+            }
+
+            return result;
+        }
+
+        private void BubbleUp(int index)
+        {
+            while (index > 0)
+            {
+                int parent = (index - 1) / 2;
+                if (_items[parent].Priority <= _items[index].Priority)
+                {
+                    break;
+                }
+
+                (_items[parent], _items[index]) = (_items[index], _items[parent]);
+                index = parent;
+            }
+        }
+
+        private void BubbleDown(int index)
+        {
+            while (true)
+            {
+                int left = (index * 2) + 1;
+                int right = left + 1;
+                int smallest = index;
+
+                if (left < _items.Count && _items[left].Priority < _items[smallest].Priority)
+                {
+                    smallest = left;
+                }
+
+                if (right < _items.Count && _items[right].Priority < _items[smallest].Priority)
+                {
+                    smallest = right;
+                }
+
+                if (smallest == index)
+                {
+                    break;
+                }
+
+                (_items[smallest], _items[index]) = (_items[index], _items[smallest]);
+                index = smallest;
+            }
+        }
     }
 }

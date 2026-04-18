@@ -7,6 +7,7 @@ public sealed class CrowdGrid
 {
     private readonly bool[,] _walkable;
     private readonly Point3d[,] _cellCenters;
+    private readonly double[,] _boundaryDistances;
     private readonly double _tolerance;
 
     public CrowdGrid(CrowdFloor floor, IReadOnlyList<CrowdObstacle> obstacles, double tolerance = 0.01)
@@ -36,8 +37,10 @@ public sealed class CrowdGrid
 
         _walkable = new bool[Width, Height];
         _cellCenters = new Point3d[Width, Height];
+        _boundaryDistances = new double[Width, Height];
 
         BuildWalkableMap();
+        BuildBoundaryDistanceMap();
     }
 
     public CrowdFloor Floor { get; }
@@ -136,6 +139,23 @@ public sealed class CrowdGrid
         return repulsion;
     }
 
+    public double GetBoundaryDistance(Point3d point)
+    {
+        (int x, int y) = ToCell(point);
+        if (IsWalkable(x, y))
+        {
+            return _boundaryDistances[x, y];
+        }
+
+        double minDistance = GetCurveDistance(Floor.Boundary, point);
+        foreach (CrowdObstacle obstacle in Obstacles)
+        {
+            minDistance = Math.Min(minDistance, GetCurveDistance(obstacle.Boundary, point));
+        }
+
+        return minDistance;
+    }
+
     private void BuildWalkableMap()
     {
         for (int x = 0; x < Width; x++)
@@ -149,6 +169,24 @@ public sealed class CrowdGrid
 
                 _cellCenters[x, y] = center;
                 _walkable[x, y] = IsInsideFloor(center) && !IsInsideObstacle(center);
+            }
+        }
+    }
+
+    private void BuildBoundaryDistanceMap()
+    {
+        for (int x = 0; x < Width; x++)
+        {
+            for (int y = 0; y < Height; y++)
+            {
+                Point3d center = _cellCenters[x, y];
+                double minDistance = GetCurveDistance(Floor.Boundary, center);
+                foreach (CrowdObstacle obstacle in Obstacles)
+                {
+                    minDistance = Math.Min(minDistance, GetCurveDistance(obstacle.Boundary, center));
+                }
+
+                _boundaryDistances[x, y] = minDistance;
             }
         }
     }
@@ -200,5 +238,15 @@ public sealed class CrowdGrid
 
         double strength = (influenceRadius - distance) / influenceRadius;
         return direction * strength;
+    }
+
+    private static double GetCurveDistance(Curve curve, Point3d point)
+    {
+        if (!curve.ClosestPoint(point, out double curveParameter))
+        {
+            return double.PositiveInfinity;
+        }
+
+        return point.DistanceTo(curve.PointAt(curveParameter));
     }
 }

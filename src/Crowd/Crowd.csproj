@@ -10,4 +10,33 @@
     <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
     <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
+
+  <Target Name="DeployCrowdToGrasshopper"
+          AfterTargets="Build"
+          Condition="'$(DeployToGrasshopper)' == 'true' and '$(IndToolsDeployRoot)' != '' and '$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <_CrowdDeployDir>$(IndToolsDeployRoot)\$(TargetFramework)</_CrowdDeployDir>
+    </PropertyGroup>
+
+    <ItemGroup Condition="Exists('$(_CrowdDeployDir)')">
+      <_CrowdDeployFiles Include="$(TargetDir)Crowd.dll" />
+      <_CrowdDeployFiles Include="$(TargetDir)Crowd.pdb" Condition="Exists('$(TargetDir)Crowd.pdb')" />
+      <_CrowdDeployFiles Include="$(TargetDir)Crowd.xml" Condition="Exists('$(TargetDir)Crowd.xml')" />
+    </ItemGroup>
+
+    <Message Condition="Exists('$(_CrowdDeployDir)')"
+             Importance="high"
+             Text="Deploying Crowd engine to $(_CrowdDeployDir)" />
+
+    <Copy SourceFiles="@(_CrowdDeployFiles)"
+          DestinationFolder="$(_CrowdDeployDir)"
+          SkipUnchangedFiles="false"
+          Retries="3"
+          RetryDelayMilliseconds="250"
+          Condition="Exists('$(_CrowdDeployDir)')"
+          ContinueOnError="WarnAndContinue" />
+
+    <Warning Condition="!Exists('$(_CrowdDeployDir)')"
+             Text="Grasshopper deploy skipped because target folder '$(_CrowdDeployDir)' was not found." />
+  </Target>
 </Project>

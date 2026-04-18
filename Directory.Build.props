@@ -1,5 +1,5 @@
 ﻿<Project>
-<PropertyGroup>
+	<PropertyGroup>
 	<!-- Each project sets its own TargetFramework(s) -->
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
@@ -7,8 +7,17 @@
 		<EnableDynamicLoading>true</EnableDynamicLoading>
 		<AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<NoWarn>$(NoWarn);1591</NoWarn>
+		<NoWarn>$(NoWarn);1591;NU1507;NU1900</NoWarn>
+		<NuGetAudit>false</NuGetAudit>
+		<RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+		<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+		<MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3101</MSBuildWarningsAsMessages>
+		<UseSharedCompilation>false</UseSharedCompilation>
+		<RestoreDisableParallel>true</RestoreDisableParallel>
 		<BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
 		<BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+		<GrasshopperLibrariesRoot Condition="'$(GrasshopperLibrariesRoot)' == '' and '$(APPDATA)' != ''">$(APPDATA)\Grasshopper\Libraries</GrasshopperLibrariesRoot>
+		<IndToolsDeployRoot Condition="'$(IndToolsDeployRoot)' == '' and '$(GrasshopperLibrariesRoot)' != ''">$(GrasshopperLibrariesRoot)\INDTools</IndToolsDeployRoot>
+		<DeployToGrasshopper Condition="'$(DeployToGrasshopper)' == ''">true</DeployToGrasshopper>
 	</PropertyGroup>
 </Project>

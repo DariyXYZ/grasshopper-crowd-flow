@@ -11,7 +11,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class RunCrowdSimulationComponent : IndGhComponent
 {
     public RunCrowdSimulationComponent()
-        : base("Run Crowd Simulation", "Solve", "Runs the crowd solver until all agents reach exits and returns trajectories, frame data, and completion stats.", "GhCrowdFlow", "Crowd")
+        : base("Run Crowd Simulation", "Solve", "Runs the crowd solver until all agents reach exits and returns trajectories, frame data, and completion stats.", "INDTools", "Crowd")
     {
     }
 

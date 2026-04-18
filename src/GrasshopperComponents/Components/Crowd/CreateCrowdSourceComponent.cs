@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdSourceComponent : IndGhComponent
 {
     public CreateCrowdSourceComponent()
-        : base("Create Crowd Sources", "Src", "Creates source points that emit agents over time.", "GhCrowdFlow", "Crowd")
+        : base("Create Crowd Sources", "Src", "Creates source points that emit agents over time.", "INDTools", "Crowd")
     {
     }
 

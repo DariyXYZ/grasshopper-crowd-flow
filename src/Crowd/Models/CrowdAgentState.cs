@@ -13,7 +13,13 @@ public sealed class CrowdAgentState
         double radius,
         double preferredSpeed,
         double maxSpeed,
+        double timeGap,
+        double reactionTime,
+        double anticipationTime,
         double separationWeight,
+        double neighborRepulsionStrength,
+        double neighborRepulsionRange,
+        double comfortDistance,
         double arrivalThreshold,
         double noiseOffset,
         double sideBias,
@@ -22,10 +28,13 @@ public sealed class CrowdAgentState
         double congestionSensitivity,
         double exitCommitment,
         double reassessmentInterval,
+        double wallBufferDistance,
         double wanderStrength,
         double curvaturePreference,
         double startScatterStrength,
-        double focusDelay)
+        double focusDelay,
+        double initialFieldDistance,
+        double laneCommitmentBias)
     {
         Id = id;
         Position = position;
@@ -35,7 +44,13 @@ public sealed class CrowdAgentState
         Radius = radius;
         PreferredSpeed = preferredSpeed;
         MaxSpeed = maxSpeed;
+        TimeGap = timeGap;
+        ReactionTime = reactionTime;
+        AnticipationTime = anticipationTime;
         SeparationWeight = separationWeight;
+        NeighborRepulsionStrength = neighborRepulsionStrength;
+        NeighborRepulsionRange = neighborRepulsionRange;
+        ComfortDistance = comfortDistance;
         ArrivalThreshold = arrivalThreshold;
         NoiseOffset = noiseOffset;
         SideBias = sideBias;
@@ -44,10 +59,13 @@ public sealed class CrowdAgentState
         CongestionSensitivity = congestionSensitivity;
         ExitCommitment = exitCommitment;
         ReassessmentInterval = reassessmentInterval;
+        WallBufferDistance = wallBufferDistance;
         WanderStrength = wanderStrength;
         CurvaturePreference = curvaturePreference;
         StartScatterStrength = startScatterStrength;
         FocusDelay = focusDelay;
+        LastFieldDistance = initialFieldDistance;
+        LaneCommitmentBias = laneCommitmentBias;
         NextExitDecisionTime = spawnTime + reassessmentInterval;
         Velocity = Vector3d.Zero;
         DesiredVelocity = Vector3d.Zero;
@@ -73,7 +91,19 @@ public sealed class CrowdAgentState
 
     public double MaxSpeed { get; }
 
+    public double TimeGap { get; }
+
+    public double ReactionTime { get; }
+
+    public double AnticipationTime { get; }
+
     public double SeparationWeight { get; }
+
+    public double NeighborRepulsionStrength { get; }
+
+    public double NeighborRepulsionRange { get; }
+
+    public double ComfortDistance { get; }
 
     public double ArrivalThreshold { get; }
 
@@ -91,6 +121,8 @@ public sealed class CrowdAgentState
 
     public double ReassessmentInterval { get; }
 
+    public double WallBufferDistance { get; }
+
     public double WanderStrength { get; }
 
     public double CurvaturePreference { get; }
@@ -98,6 +130,12 @@ public sealed class CrowdAgentState
     public double StartScatterStrength { get; }
 
     public double FocusDelay { get; }
+
+    public double LastFieldDistance { get; set; }
+
+    public double StuckDuration { get; set; }
+
+    public double LaneCommitmentBias { get; }
 
     public double NextExitDecisionTime { get; set; }
 

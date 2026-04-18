@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net48;net7.0;net8.0</TargetFrameworks>
+    <OutputType>Library</OutputType>
+    <AssemblyName>INDGrasshopperComponents</AssemblyName>
+    <Title>INDTools</Title>
+    <Company>INDStudio</Company>
+    <Authors>INDStudio</Authors>
+    <Description>Grasshopper crowd simulation plugin with trajectory output and heatmap mesh generation for Rhino 8.</Description>
+    <Version>0.1.0</Version>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Crowd\Crowd.csproj" SetTargetFramework="TargetFramework=$(TargetFramework)" />
+    <PackageReference Include="Grasshopper" ExcludeAssets="runtime" />
+    <PackageReference Include="RhinoCommon" />
+    <PackageReference Include="System.Resources.Extensions" />
+    <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
+    <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Windows.Forms" Condition="'$(TargetFramework)' == 'net48'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="CreateGhaArtifact" AfterTargets="Build">
+    <PropertyGroup>
+      <_PluginAssemblyPath>$(TargetDir)$(AssemblyName).dll</_PluginAssemblyPath>
+      <_GhaArtifactPath>$(TargetDir)INDGrasshopperComponents.gha</_GhaArtifactPath>
+      <_PluginDeployDir>$(IndToolsDeployRoot)\$(TargetFramework)</_PluginDeployDir>
+    </PropertyGroup>
+
+    <Copy SourceFiles="$(_PluginAssemblyPath)"
+          DestinationFiles="$(_GhaArtifactPath)"
+          Condition="Exists('$(_PluginAssemblyPath)')" />
+
+    <ItemGroup Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')">
+      <_PluginDeployFiles Include="$(_GhaArtifactPath)" />
+      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).dll" Condition="Exists('$(TargetDir)$(AssemblyName).dll')" />
+      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).pdb" Condition="Exists('$(TargetDir)$(AssemblyName).pdb')" />
+      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).deps.json" Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
+      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).runtimeconfig.json" Condition="Exists('$(TargetDir)$(AssemblyName).runtimeconfig.json')" />
+    </ItemGroup>
+
+    <Message Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')"
+             Importance="high"
+             Text="Deploying Grasshopper plugin to $(_PluginDeployDir)" />
+
+    <Copy SourceFiles="@(_PluginDeployFiles)"
+          DestinationFolder="$(_PluginDeployDir)"
+          SkipUnchangedFiles="false"
+          Retries="3"
+          RetryDelayMilliseconds="250"
+          Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')"
+          ContinueOnError="WarnAndContinue" />
+  </Target>
+</Project>

@@ -5,6 +5,50 @@ namespace Crowd.Services;
 
 public static class CrowdModelService
 {
+    public static CrowdAgentProfile CreateAgentProfile(
+        double radius,
+        double preferredSpeed,
+        double maxSpeed,
+        double separationWeight,
+        double arrivalThreshold,
+        double variationPercent,
+        double steeringNoise,
+        double densityWeight,
+        double spawnJitter,
+        double exitChoiceRandomness,
+        double congestionSensitivity,
+        double exitCommitment,
+        double reassessmentInterval,
+        double wallAvoidance,
+        double turnAnticipation)
+    {
+        CrowdAgentProfile defaults = CrowdAgentProfile.Default;
+        return CreateAgentProfile(
+            radius,
+            preferredSpeed,
+            maxSpeed,
+            defaults.TimeGap,
+            defaults.ReactionTime,
+            defaults.AnticipationTime,
+            separationWeight,
+            defaults.NeighborRepulsionStrength,
+            defaults.NeighborRepulsionRange,
+            defaults.ComfortDistance,
+            arrivalThreshold,
+            variationPercent,
+            steeringNoise,
+            densityWeight,
+            spawnJitter,
+            exitChoiceRandomness,
+            congestionSensitivity,
+            exitCommitment,
+            reassessmentInterval,
+            wallAvoidance,
+            defaults.WallBufferDistance,
+            turnAnticipation,
+            defaults.PreferredSideBias);
+    }
+
     public static CrowdFloor CreateFloor(Curve boundary, double cellSize)
     {
         if (boundary == null)
@@ -82,7 +126,13 @@ public static class CrowdModelService
         double radius,
         double preferredSpeed,
         double maxSpeed,
+        double timeGap,
+        double reactionTime,
+        double anticipationTime,
         double separationWeight,
+        double neighborRepulsionStrength,
+        double neighborRepulsionRange,
+        double comfortDistance,
         double arrivalThreshold,
         double variationPercent,
         double steeringNoise,
@@ -93,7 +143,9 @@ public static class CrowdModelService
         double exitCommitment,
         double reassessmentInterval,
         double wallAvoidance,
-        double turnAnticipation)
+        double wallBufferDistance,
+        double turnAnticipation,
+        double preferredSideBias)
     {
         if (radius <= 0.0)
         {
@@ -108,6 +160,41 @@ public static class CrowdModelService
         if (maxSpeed < preferredSpeed)
         {
             throw new ArgumentOutOfRangeException(nameof(maxSpeed), "Max speed must be greater than or equal to preferred speed.");
+        }
+
+        if (timeGap <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeGap), "Time gap must be greater than zero.");
+        }
+
+        if (reactionTime <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(reactionTime), "Reaction time must be greater than zero.");
+        }
+
+        if (anticipationTime <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(anticipationTime), "Anticipation time must be greater than zero.");
+        }
+
+        if (separationWeight < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(separationWeight), "Separation weight must be zero or greater.");
+        }
+
+        if (neighborRepulsionStrength < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(neighborRepulsionStrength), "Neighbor repulsion strength must be zero or greater.");
+        }
+
+        if (neighborRepulsionRange <= 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(neighborRepulsionRange), "Neighbor repulsion range must be greater than zero.");
+        }
+
+        if (comfortDistance < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(comfortDistance), "Comfort distance must be zero or greater.");
         }
 
         if (arrivalThreshold <= 0.0)
@@ -160,16 +247,32 @@ public static class CrowdModelService
             throw new ArgumentOutOfRangeException(nameof(wallAvoidance), "Wall avoidance must be zero or greater.");
         }
 
+        if (wallBufferDistance < 0.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(wallBufferDistance), "Wall buffer distance must be zero or greater.");
+        }
+
         if (turnAnticipation < 0.0)
         {
             throw new ArgumentOutOfRangeException(nameof(turnAnticipation), "Turn anticipation must be zero or greater.");
+        }
+
+        if (preferredSideBias < 0.0 || preferredSideBias > 1.0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(preferredSideBias), "Preferred side bias must be between 0 and 1.");
         }
 
         return new CrowdAgentProfile(
             radius,
             preferredSpeed,
             maxSpeed,
+            timeGap,
+            reactionTime,
+            anticipationTime,
             separationWeight,
+            neighborRepulsionStrength,
+            neighborRepulsionRange,
+            comfortDistance,
             arrivalThreshold,
             variationPercent,
             steeringNoise,
@@ -180,7 +283,9 @@ public static class CrowdModelService
             exitCommitment,
             reassessmentInterval,
             wallAvoidance,
-            turnAnticipation);
+            wallBufferDistance,
+            turnAnticipation,
+            preferredSideBias);
     }
 
     public static CrowdModel CreateModel(

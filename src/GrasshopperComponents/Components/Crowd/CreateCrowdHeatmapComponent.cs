@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdHeatmapComponent : IndGhComponent
 {
     public CreateCrowdHeatmapComponent()
-        : base("Create Crowd Heatmap", "Heat", "Builds a colored mesh heatmap from simulated movement for architectural analysis.", "GhCrowdFlow", "Crowd")
+        : base("Create Crowd Heatmap", "Heat", "Builds a colored mesh heatmap from simulated movement for architectural analysis.", "INDTools", "Crowd")
     {
     }
 

@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdObstacleComponent : IndGhComponent
 {
     public CreateCrowdObstacleComponent()
-        : base("Create Crowd Obstacles", "Obs", "Creates obstacle regions that agents must navigate around.", "GhCrowdFlow", "Crowd")
+        : base("Create Crowd Obstacles", "Obs", "Creates obstacle regions that agents must navigate around.", "INDTools", "Crowd")
     {
     }
 
