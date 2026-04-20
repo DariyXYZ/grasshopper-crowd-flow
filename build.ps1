@@ -4,7 +4,7 @@ param(
 
     [switch]$Restore,
 
-    [switch]$DeployToGrasshopper,
+    [bool]$DeployToGrasshopper = $false,
 
     [switch]$AllFrameworks,
 

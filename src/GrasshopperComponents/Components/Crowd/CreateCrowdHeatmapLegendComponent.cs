@@ -15,7 +15,7 @@ public sealed class CreateCrowdHeatmapLegendComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("d944e9a5-f307-4a30-a92c-dba52cfa20a8");
 
-    protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdHeatmap;
+    protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdHeatmapLegend;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {

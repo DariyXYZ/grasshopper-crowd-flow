@@ -64,7 +64,6 @@
           SkipUnchangedFiles="false"
           Retries="3"
           RetryDelayMilliseconds="250"
-          Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')"
-          ContinueOnError="WarnAndContinue" />
+          Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')" />
   </Target>
 </Project>

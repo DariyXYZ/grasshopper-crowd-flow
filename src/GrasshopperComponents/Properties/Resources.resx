@@ -75,4 +75,13 @@
   <data name="CrowdSource" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\CrowdSource.png;System.Drawing.Bitmap, System.Drawing</value>
   </data>
+  <data name="CrowdHeatmapLegend" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\CrowdHeatmapLegend.png;System.Drawing.Bitmap, System.Drawing</value>
+  </data>
+  <data name="CrowdExportImage" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\CrowdExportImage.png;System.Drawing.Bitmap, System.Drawing</value>
+  </data>
+  <data name="CrowdExportReport" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\CrowdExportReport.png;System.Drawing.Bitmap, System.Drawing</value>
+  </data>
 </root>

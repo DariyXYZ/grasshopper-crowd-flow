@@ -40,8 +40,11 @@ internal class Resources
     internal static System.Drawing.Bitmap CrowdExit => GetBitmap("CrowdExit");
     internal static System.Drawing.Bitmap CrowdFloor => GetBitmap("CrowdFloor");
     internal static System.Drawing.Bitmap CrowdHeatmap => GetBitmap("CrowdHeatmap");
+    internal static System.Drawing.Bitmap CrowdHeatmapLegend => GetBitmap("CrowdHeatmapLegend");
     internal static System.Drawing.Bitmap CrowdModel => GetBitmap("CrowdModel");
     internal static System.Drawing.Bitmap CrowdObstacle => GetBitmap("CrowdObstacle");
     internal static System.Drawing.Bitmap CrowdRun => GetBitmap("CrowdRun");
     internal static System.Drawing.Bitmap CrowdSource => GetBitmap("CrowdSource");
+    internal static System.Drawing.Bitmap CrowdExportImage => GetBitmap("CrowdExportImage");
+    internal static System.Drawing.Bitmap CrowdExportReport => GetBitmap("CrowdExportReport");
 }

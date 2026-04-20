@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdHeatmapComponent : IndGhComponent
 {
     public CreateCrowdHeatmapComponent()
-        : base("Create Crowd Heatmap", "Heat", "Builds a colored mesh heatmap from simulated movement for architectural analysis.", "INDTools", "Crowd")
+        : base("Create Crowd Heatmap", "Heat", "Builds a colored metric heatmap from simulated movement for architectural analysis and reporting.", "INDTools", "Crowd")
     {
     }
 
@@ -19,7 +19,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
         pManager.AddGenericParameter("Result", "R", "Crowd simulation result from Run Crowd Simulation.", GH_ParamAccess.list);
-        pManager.AddTextParameter("Mode", "Mode", "Heatmap mode: Occupancy, Density, Flow, Speed, or Congestion.", GH_ParamAccess.list, "Occupancy");
+        pManager.AddTextParameter("Mode", "Mode", "Heatmap mode: Occupancy, Density, Throughput, Speed, or Congestion.", GH_ParamAccess.list, "Occupancy");
         pManager.AddIntegerParameter("Smoothing", "S", "Number of smoothing passes on the heat field.", GH_ParamAccess.list, 2);
         pManager.AddNumberParameter("Height Scale", "H", "Optional height exaggeration for the heat mesh. Use 0 for a flat map.", GH_ParamAccess.list, 0.0);
         pManager.AddBooleanParameter("Normalize", "N", "Normalize values by frame count for easier scenario comparison.", GH_ParamAccess.list, true);
@@ -28,8 +28,8 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
         pManager.AddGenericParameter("Heatmap", "H", "Crowd heatmap result for downstream legend or reporting nodes.", GH_ParamAccess.item);
-        pManager.AddMeshParameter("Heatmap Mesh", "M", "Colored mesh heatmap of crowd occupancy.", GH_ParamAccess.item);
-        pManager.AddNumberParameter("Values", "V", "Heat value per output cell.", GH_ParamAccess.list);
+        pManager.AddMeshParameter("Heatmap Mesh", "M", "Colored mesh heatmap of the resolved metric.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Values", "V", "Metric value per output cell.", GH_ParamAccess.list);
         pManager.AddNumberParameter("Minimum Value", "Min", "Minimum heat value in the field.", GH_ParamAccess.item);
         pManager.AddNumberParameter("Peak Value", "P", "Maximum heat value in the field.", GH_ParamAccess.item);
         pManager.AddTextParameter("Resolved Mode", "Mode", "Resolved heatmap mode used for calculation.", GH_ParamAccess.item);

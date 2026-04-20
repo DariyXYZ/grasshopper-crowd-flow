@@ -27,6 +27,7 @@ public static class CrowdSimulationService
     private const double CandidateProgressWeight = 1.15;
     private const double CandidateTargetAlignmentWeight = 1.4;
     private const double CandidateLowProgressPenaltyWeight = 0.95;
+    private const double CandidateRecirculationPenaltyWeight = 1.35;
     private const double WallInfluenceFactor = 2.4;
     private const double WallRepulsionWeight = 2.05;
     private const double TimeToCollisionWeight = 1.8;
@@ -91,6 +92,7 @@ public static class CrowdSimulationService
     private const double ExitSoftmaxTemperature = 0.42;
     private const double FieldRegressionCellFactor = 0.08;
     private const double FieldRegressionStepFactor = 0.04;
+    private const double ConstrainedWinnerCollapseGap = 0.24;
 
     /// <summary>
     /// Simulates pedestrians on a 2D walkable floor using a grid-derived distance field and lightweight local avoidance.
@@ -138,16 +140,19 @@ public static class CrowdSimulationService
             .OrderBy(agent => agent.Id)
             .Select(agent => new CrowdAgentPath(
                 agent.Id,
+                agent.ExitIndex,
                 new Polyline(trajectories.TryGetValue(agent.Id, out List<Point3d>? points) ? points : Enumerable.Empty<Point3d>()),
                 agent.IsFinished,
                 agent.SpawnTime,
                 agent.FinishTime))
             .ToList();
 
+        CrowdSimulationCoreMetrics coreMetrics = CrowdSimulationMetricsService.BuildCoreMetrics(model, paths, time);
         return new CrowdSimulationResult(
             model,
             frames,
             paths,
+            coreMetrics,
             totalSpawned: agents.Count,
             totalFinished: agents.Count(agent => agent.IsFinished),
             simulatedDuration: time,
@@ -898,7 +903,8 @@ public static class CrowdSimulationService
     {
         Point3d bestPoint = grid.GetCellCenter(x, y);
         double bestScore = double.NegativeInfinity;
-        List<(Point3d Point, double Score)> candidates = new();
+        double secondBestScore = double.NegativeInfinity;
+        List<(Point3d Point, double Score, double WinnerSafety)> candidates = new();
         Vector3d currentHeading = agent.Velocity;
         double routeFocus = GetRouteFocusFactor(agent, time);
         double desiredClearance = agent.Radius + agent.WallBufferDistance + (agent.ComfortDistance * 0.5);
@@ -913,6 +919,7 @@ public static class CrowdSimulationService
             currentHeading = Vector3d.Zero;
         }
 
+        double bestWinnerSafety = 0.0;
         for (int ox = -1; ox <= 1; ox++)
         {
             for (int oy = -1; oy <= 1; oy++)
@@ -991,6 +998,34 @@ public static class CrowdSimulationService
                     ? CandidateLowProgressPenaltyWeight * (0.65 + (localConstraintFactor * 0.7))
                     : RemapClamped(rawProgress, 0.0, Math.Max(grid.Floor.CellSize * 0.45, 0.08), CandidateLowProgressPenaltyWeight, 0.0)
                         * (0.3 + localConstraintFactor);
+                double recirculationPenalty = evaluateConstraintDetail
+                    ? GetRecirculationPenalty(
+                        agent,
+                        candidateDistance,
+                        rawProgress,
+                        candidateDirection,
+                        futureDirection.Length > 1e-6 ? futureDirection : currentHeading,
+                        forwardClearanceScore,
+                        widthScore,
+                        candidateBoundaryDistance,
+                        desiredClearance,
+                        bottleneckPenalty,
+                        apexPenalty,
+                        pocketTrapPenalty,
+                        localConstraintFactor,
+                        grid)
+                    : 0.0;
+                double winnerSafety = evaluateConstraintDetail
+                    ? GetWinnerSafetyFactor(
+                        rawProgress,
+                        forwardClearanceScore,
+                        widthScore,
+                        candidateBoundaryDistance,
+                        desiredClearance,
+                        bottleneckPenalty,
+                        apexPenalty,
+                        pocketTrapPenalty)
+                    : 1.0;
                 double curvaturePenalty = currentHeading.Length <= 1e-6
                     ? 0.0
                     : Math.Pow(Math.Max(0.0, 1.0 - Vector3d.Multiply(currentHeading, candidateDirection)), 2.0) * CurvaturePenaltyWeight * agent.CurvaturePreference * routeFocus;
@@ -1009,17 +1044,24 @@ public static class CrowdSimulationService
                     (randomScore * Lerp(1.0, 0.1, Math.Max(localConstraintFactor, finalApproachFactor))) +
                     targetAlignmentScore -
                     lowProgressPenalty -
+                    (recirculationPenalty * CandidateRecirculationPenaltyWeight) -
                     curvaturePenalty -
                     (streamPenalty * CandidateStreamPenaltyWeight) -
                     (bottleneckPenalty * CandidateBottleneckWeight) -
                     (apexPenalty * CandidateApexPenaltyWeight) -
                     (pocketTrapPenalty * CandidatePocketTrapWeight);
-                candidates.Add((candidate, score));
+                candidates.Add((candidate, score, winnerSafety));
 
                 if (score > bestScore)
                 {
+                    secondBestScore = bestScore;
                     bestScore = score;
                     bestPoint = candidate;
+                    bestWinnerSafety = winnerSafety;
+                }
+                else if (score > secondBestScore)
+                {
+                    secondBestScore = score;
                 }
             }
         }
@@ -1033,13 +1075,19 @@ public static class CrowdSimulationService
         double sumX = 0.0;
         double sumY = 0.0;
         double sumZ = 0.0;
-        foreach ((Point3d point, double score) in candidates)
+        double winnerGap = double.IsNegativeInfinity(secondBestScore) ? bestScore : bestScore - secondBestScore;
+        double winnerCollapse =
+            RemapClamped(winnerGap, 0.0, ConstrainedWinnerCollapseGap, 0.0, 1.0) *
+            bestWinnerSafety *
+            Math.Max(targetZoneFactor, routeNearConstraint ? 0.7 : 0.0);
+        foreach ((Point3d point, double score, double winnerSafety) in candidates)
         {
             double blendTemperature =
                 CandidateBlendTemperature *
                 Lerp(1.0, BottleneckBlendTemperatureFactor, routeNearConstraint ? 1.0 : 0.0) *
                 Lerp(1.0, TargetZoneBlendTemperatureFactor, targetZoneFactor) *
-                Lerp(1.0, 0.72, Math.Max(targetZoneFactor, routeNearConstraint ? 0.5 : 0.0));
+                Lerp(1.0, 0.72, Math.Max(targetZoneFactor, routeNearConstraint ? 0.5 : 0.0)) *
+                Lerp(1.0, 0.6, winnerCollapse * Lerp(0.85, 1.0, winnerSafety));
             double scaled = (score - bestScore) / Math.Max(0.05, blendTemperature);
             double weight = Math.Exp(Math.Max(-20.0, Math.Min(0.0, scaled)));
             totalWeight += weight;
@@ -1363,6 +1411,80 @@ public static class CrowdSimulationService
         double poorProgress = Math.Max(0.0, (expectedProgress - bestProgress) / Math.Max(expectedProgress, 1e-6));
         double pinchPenalty = Math.Max(0.0, (desiredClearance - lowestClearance) / Math.Max(desiredClearance, 1e-6));
         return poorProgress * (0.45 + pinchPenalty);
+    }
+
+    private static double GetRecirculationPenalty(
+        CrowdAgentState agent,
+        double candidateDistance,
+        double rawProgress,
+        Vector3d candidateDirection,
+        Vector3d referenceDirection,
+        double forwardClearanceScore,
+        double widthScore,
+        double candidateBoundaryDistance,
+        double desiredClearance,
+        double bottleneckPenalty,
+        double apexPenalty,
+        double pocketTrapPenalty,
+        double localConstraintFactor,
+        CrowdGrid grid)
+    {
+        if (localConstraintFactor <= 1e-6 || !candidateDirection.Unitize())
+        {
+            return 0.0;
+        }
+
+        double shortMoveThreshold = Math.Max(grid.Floor.CellSize * 1.4, Math.Max(agent.ComfortDistance * 0.9, agent.Radius * 2.4));
+        double shortMoveFactor = 1.0 - Math.Min(1.0, candidateDistance / Math.Max(shortMoveThreshold, 1e-6));
+        double lowProgressFactor = rawProgress <= 1e-6
+            ? 1.0
+            : 1.0 - Math.Min(1.0, rawProgress / Math.Max(grid.Floor.CellSize * 0.55, 0.08));
+
+        double turnAwayFactor = 0.0;
+        if (referenceDirection.Unitize())
+        {
+            turnAwayFactor = Math.Max(0.0, 1.0 - Vector3d.Multiply(candidateDirection, referenceDirection));
+        }
+
+        double clearanceSupport = desiredClearance <= 1e-6
+            ? 0.0
+            : Math.Min(1.0, Math.Max(0.0, candidateBoundaryDistance / desiredClearance));
+        double escapeEvidence =
+            (Math.Max(0.0, forwardClearanceScore) * 0.55) +
+            (Math.Max(0.0, widthScore) * 0.2) +
+            (clearanceSupport * 0.25);
+        double trapPressure = Math.Max(bottleneckPenalty, Math.Max(apexPenalty, pocketTrapPenalty));
+        double reliefFactor = Math.Max(0.15, 1.0 - Math.Min(1.0, escapeEvidence * (0.75 + (0.45 * (1.0 - trapPressure)))));
+
+        return lowProgressFactor * (0.35 + shortMoveFactor) * (0.25 + turnAwayFactor) * localConstraintFactor * reliefFactor;
+    }
+
+    private static double GetWinnerSafetyFactor(
+        double rawProgress,
+        double forwardClearanceScore,
+        double widthScore,
+        double candidateBoundaryDistance,
+        double desiredClearance,
+        double bottleneckPenalty,
+        double apexPenalty,
+        double pocketTrapPenalty)
+    {
+        double progressFactor = rawProgress <= 0.0
+            ? 0.0
+            : Math.Min(1.0, rawProgress / Math.Max(0.16, desiredClearance * 0.35));
+        double forwardFactor = Math.Max(0.0, Math.Min(1.0, forwardClearanceScore));
+        double widthFactor = RemapClamped(widthScore, -0.25, 0.45, 0.0, 1.0);
+        double clearanceFactor = desiredClearance <= 1e-6
+            ? 0.0
+            : Math.Min(1.0, Math.Max(0.0, candidateBoundaryDistance / desiredClearance));
+        double trapPenalty = Math.Max(bottleneckPenalty, Math.Max(apexPenalty, pocketTrapPenalty));
+        double baseSafety =
+            (progressFactor * 0.34) +
+            (forwardFactor * 0.34) +
+            (widthFactor * 0.16) +
+            (clearanceFactor * 0.16);
+
+        return Math.Max(0.0, Math.Min(1.0, baseSafety * (1.0 - Math.Min(1.0, trapPenalty * 0.8))));
     }
 
     private static double GetLaneCommitmentScore(CrowdAgentState agent, Vector3d candidateDirection, Vector3d referenceDirection)

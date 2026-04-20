@@ -9,6 +9,9 @@
     <PackageReference Include="RhinoCommon" />
     <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
     <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="Microsoft.CSharp" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.IO.Compression.FileSystem" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
 
   <Target Name="DeployCrowdToGrasshopper"
@@ -33,8 +36,7 @@
           SkipUnchangedFiles="false"
           Retries="3"
           RetryDelayMilliseconds="250"
-          Condition="Exists('$(_CrowdDeployDir)')"
-          ContinueOnError="WarnAndContinue" />
+          Condition="Exists('$(_CrowdDeployDir)')" />
 
     <Warning Condition="!Exists('$(_CrowdDeployDir)')"
              Text="Grasshopper deploy skipped because target folder '$(_CrowdDeployDir)' was not found." />

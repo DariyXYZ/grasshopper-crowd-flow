@@ -16,29 +16,69 @@ Grasshopper plugin for crowd movement simulation and architectural heatmap analy
 - Simulation that runs until agents reach exits instead of stopping at one shared duration
 - Per-agent behavioral variation for speed, noise, commitment, congestion sensitivity, wall avoidance, and turn anticipation
 - Heatmap mesh generation for occupancy and movement intensity analysis
+- Report-oriented metrics such as clearance time, travel-time statistics, and exit split
+- Report export workflow with PNG capture and DOCX/PDF generation
 - Minimal modern icon set for all crowd nodes
 
 ## Repository Layout
 
 - `src/Crowd/` simulation engine and heatmap services
 - `src/GrasshopperComponents/` Grasshopper `.gha` plugin with crowd components
-- `examples/` place for sample Grasshopper definitions and showcase files
+- `examples/flow-demo/` ready-to-open Grasshopper and Rhino demo files
+- `templates/reporting/` crowd report DOCX template for `Export Crowd Report`
+- `docs/quick-start.md` end-to-end local build, deploy, and first-run guide
 
-## Build
+## Quick Start
 
 Requirements:
 
-- Rhino 8
+- Rhino 8 with Grasshopper
 - .NET SDK 8
 - Windows
+
+1. Build the plugin from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+2. Deploy the `net48` Grasshopper plugin into the local Grasshopper libraries folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -DeployToGrasshopper
+```
+
+3. Open Rhino 8 and Grasshopper.
+4. Open the sample definition:
+   `examples/flow-demo/Flow.gh`
+5. If the sample scene needs Rhino geometry context, open:
+   `examples/flow-demo/Flow.3dm`
+6. For report export tests, point `Export Crowd Report` to:
+   `templates/reporting/CrowdReport_Template.docx`
+
+The full setup guide is in [docs/quick-start.md](docs/quick-start.md).
+
+## Build
 
 Build from the repository root:
 
 ```powershell
-dotnet build .\GhCrowdFlow.sln -c Debug
+powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-The Grasshopper plugin assembly is produced from:
+Build all target frameworks when needed:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -AllFrameworks
+```
+
+Deploy explicitly when Rhino is closed:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -DeployToGrasshopper
+```
+
+The main Grasshopper plugin project is:
 
 - `src/GrasshopperComponents/GrasshopperComponents.csproj`
 
@@ -51,7 +91,17 @@ This public repository currently focuses on crowd simulation only. Broader inter
 - The plugin targets `net48`, `net7.0`, and `net8.0`
 - Developer-only visibility can be enabled with `GHCROWDFLOW_DEV=1`
 - A local developer flag file can also be placed at `%AppData%\\GhCrowdFlow\\dev.flag`
+- The release-oriented Grasshopper deploy path is `net48`
+- `build.ps1` keeps deploy explicit by default so local verification and release deploy are separate steps
+
+## Included Public Test Materials
+
+- `examples/flow-demo/Flow.gh` sample Grasshopper definition
+- `examples/flow-demo/Flow.3dm` Rhino scene for the sample definition
+- `templates/reporting/CrowdReport_Template.docx` report template for export-node testing
+- `docs/quick-start.md` user-facing setup walkthrough
+- `docs/reporting-workflow.md` reporting and template workflow notes
 
 ## Status
 
-This repository is being prepared as a standalone public release. The simulation and Grasshopper components are functional, and the next steps are example definitions, packaging polish, and public release workflow.
+This repository is now structured so a public user can build, deploy, open the demo scene, and test the reporting workflow locally. The remaining release work is packaging polish and final GitHub publication.

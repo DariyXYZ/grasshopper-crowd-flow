@@ -11,7 +11,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class RunCrowdSimulationComponent : IndGhComponent
 {
     public RunCrowdSimulationComponent()
-        : base("Run Crowd Simulation", "Solve", "Runs the crowd solver until all agents reach exits and returns trajectories, frame data, and completion stats.", "INDTools", "Crowd")
+        : base("Run Crowd Simulation", "Solve", "Runs the crowd solver and returns trajectories, timeline data, and core reporting metrics.", "INDTools", "Crowd")
     {
     }
 
@@ -30,9 +30,16 @@ public sealed class RunCrowdSimulationComponent : IndGhComponent
         pManager.AddCurveParameter("Trajectories", "T", "Agent trajectories across the simulation.", GH_ParamAccess.list);
         pManager.AddIntegerParameter("Active Counts", "A", "Active agent count per frame.", GH_ParamAccess.list);
         pManager.AddIntegerParameter("Finished Counts", "F", "Finished agent count per frame.", GH_ParamAccess.list);
-        pManager.AddNumberParameter("Simulated Duration", "D", "Actual simulated time until completion or safety stop.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Clearance Time", "CT", "Scenario clearance time in seconds.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Mean Travel Time", "MT", "Mean travel time in seconds for completed agents.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Minimum Travel Time", "MinT", "Minimum travel time in seconds for completed agents.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Maximum Travel Time", "MaxT", "Maximum travel time in seconds for completed agents.", GH_ParamAccess.item);
+        pManager.AddNumberParameter("Exit Split", "ES", "Completed-agent share by exit index as values from 0 to 1.", GH_ParamAccess.list);
         pManager.AddBooleanParameter("Completed All", "C", "True when every spawned agent reached an exit.", GH_ParamAccess.item);
-        pManager.AddGenericParameter("Result", "R", "Crowd simulation result object.", GH_ParamAccess.item);
+        pManager.AddGenericParameter("Core Metrics", "CM", "Core simulation metrics summary for downstream reporting.", GH_ParamAccess.item);
+        pManager.AddGenericParameter("Result", "R", "Full crowd simulation result object.", GH_ParamAccess.item);
+        pManager.AddIntegerParameter("Exit Indices", "EI", "Exit indices corresponding to the Exit Split values.", GH_ParamAccess.list);
+        pManager.AddIntegerParameter("Exit Counts", "EC", "Completed-agent counts corresponding to the Exit Split values.", GH_ParamAccess.list);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
@@ -70,14 +77,25 @@ public sealed class RunCrowdSimulationComponent : IndGhComponent
                 .Where(path => path.Polyline.Count >= 2)
                 .Select(path => new PolylineCurve(path.Polyline))
                 .ToList();
+            CrowdSimulationCoreMetrics core = result.CoreMetrics;
+            List<int> exitIndices = core.ExitSplits.Select(split => split.ExitIndex).ToList();
+            List<int> exitCounts = core.ExitSplits.Select(split => split.CompletedAgents).ToList();
+            List<double> exitSplit = core.ExitSplits.Select(split => split.Share).ToList();
 
             DA.SetDataTree(0, positionsTree);
             DA.SetDataList(1, trajectories);
             DA.SetDataList(2, activeCounts);
             DA.SetDataList(3, finishedCounts);
-            DA.SetData(4, result.SimulatedDuration);
-            DA.SetData(5, result.CompletedAllAgents);
-            DA.SetData(6, result);
+            DA.SetData(4, core.ClearanceTime);
+            DA.SetData(5, core.MeanTravelTime);
+            DA.SetData(6, core.MinimumTravelTime);
+            DA.SetData(7, core.MaximumTravelTime);
+            DA.SetDataList(8, exitSplit);
+            DA.SetData(9, result.CompletedAllAgents);
+            DA.SetData(10, core);
+            DA.SetData(11, result);
+            DA.SetDataList(12, exitIndices);
+            DA.SetDataList(13, exitCounts);
         }
         catch (Exception ex)
         {

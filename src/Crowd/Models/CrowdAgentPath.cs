@@ -4,9 +4,10 @@ namespace Crowd.Models;
 
 public sealed class CrowdAgentPath
 {
-    public CrowdAgentPath(int agentId, Polyline polyline, bool reachedExit, double spawnTime, double? finishTime)
+    public CrowdAgentPath(int agentId, int exitIndex, Polyline polyline, bool reachedExit, double spawnTime, double? finishTime)
     {
         AgentId = agentId;
+        ExitIndex = exitIndex;
         Polyline = polyline ?? throw new ArgumentNullException(nameof(polyline));
         ReachedExit = reachedExit;
         SpawnTime = spawnTime;
@@ -14,6 +15,8 @@ public sealed class CrowdAgentPath
     }
 
     public int AgentId { get; }
+
+    public int ExitIndex { get; }
 
     public Polyline Polyline { get; }
 

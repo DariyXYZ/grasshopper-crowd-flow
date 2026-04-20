@@ -14,7 +14,7 @@ public static class CrowdHeatmapService
     /// <param name="result">Simulation result containing frames and the original crowd model.</param>
     /// <param name="smoothingPasses">Number of scalar-field smoothing passes.</param>
     /// <param name="heightScale">Optional Z offset scale for turning a flat heatmap into a relief mesh.</param>
-    /// <param name="mode">Heatmap mode: occupancy, flow, speed, or congestion.</param>
+    /// <param name="mode">Heatmap mode: occupancy, density, throughput, speed, or congestion.</param>
     /// <param name="normalizeByFrameCount">Whether occupancy-like values are normalized by frame count.</param>
     /// <returns>Colored mesh heatmap plus scalar metadata for downstream reporting and legend generation.</returns>
     public static CrowdHeatmapResult Build(
@@ -182,7 +182,7 @@ public static class CrowdHeatmapService
 
                 switch (mode.ToLowerInvariant())
                 {
-                    case "flow":
+                    case "throughput":
                         values[x, y] = flowValue;
                         break;
                     case "speed":
@@ -210,7 +210,7 @@ public static class CrowdHeatmapService
         {
             "speed" => "Speed, m/s",
             "density" => "Density, agents/m2",
-            "flow" => "Flow, agents/s",
+            "throughput" => "Cell Throughput, agents/s",
             "congestion" => "Congestion, relative",
             _ => normalizeByFrameCount ? "Occupancy, normalized" : "Occupancy, agent-s/cell"
         };
