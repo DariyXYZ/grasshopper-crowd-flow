@@ -16,6 +16,7 @@
 		<RestoreDisableParallel>true</RestoreDisableParallel>
 		<BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
 		<BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+		<DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
 		<GrasshopperLibrariesRoot Condition="'$(GrasshopperLibrariesRoot)' == '' and '$(APPDATA)' != ''">$(APPDATA)\Grasshopper\Libraries</GrasshopperLibrariesRoot>
 		<IndToolsDeployRoot Condition="'$(IndToolsDeployRoot)' == '' and '$(GrasshopperLibrariesRoot)' != ''">$(GrasshopperLibrariesRoot)\INDTools</IndToolsDeployRoot>
 		<DeployToGrasshopper Condition="'$(DeployToGrasshopper)' == ''">true</DeployToGrasshopper>

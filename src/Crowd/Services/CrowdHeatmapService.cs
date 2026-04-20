@@ -14,7 +14,9 @@ public static class CrowdHeatmapService
     /// <param name="result">Simulation result containing frames and the original crowd model.</param>
     /// <param name="smoothingPasses">Number of scalar-field smoothing passes.</param>
     /// <param name="heightScale">Optional Z offset scale for turning a flat heatmap into a relief mesh.</param>
-    /// <returns>Colored mesh heatmap plus per-cell scalar values.</returns>
+    /// <param name="mode">Heatmap mode: occupancy, flow, speed, or congestion.</param>
+    /// <param name="normalizeByFrameCount">Whether occupancy-like values are normalized by frame count.</param>
+    /// <returns>Colored mesh heatmap plus scalar metadata for downstream reporting and legend generation.</returns>
     public static CrowdHeatmapResult Build(
         CrowdSimulationResult result,
         string mode,
@@ -33,6 +35,7 @@ public static class CrowdHeatmapService
         double[,] flow = new double[grid.Width, grid.Height];
         double[,] speedSum = new double[grid.Width, grid.Height];
         double[,] speedCount = new double[grid.Width, grid.Height];
+        double simulatedDuration = Math.Max(result.SimulatedDuration, result.Frames.Count * result.Model.TimeStep);
 
         for (int frameIndex = 0; frameIndex < result.Frames.Count; frameIndex++)
         {
@@ -66,6 +69,7 @@ public static class CrowdHeatmapService
                 continue;
             }
 
+            HashSet<(int X, int Y)> traversedCells = new();
             for (int i = 1; i < path.Polyline.Count; i++)
             {
                 Point3d from = path.Polyline[i - 1];
@@ -85,23 +89,27 @@ public static class CrowdHeatmapService
                         continue;
                     }
 
-                    flow[x, y] += 1.0 / (samples + 1);
+                    if (traversedCells.Add((x, y)))
+                    {
+                        flow[x, y] += 1.0;
+                    }
                 }
             }
         }
 
-        double[,] values = BuildModeField(safeMode, occupancy, flow, speedSum, speedCount, result, grid, normalizeByFrameCount);
+        string legendTitle = BuildLegendTitle(safeMode, normalizeByFrameCount);
+        double[,] values = BuildModeField(safeMode, occupancy, flow, speedSum, speedCount, result, grid, normalizeByFrameCount, simulatedDuration);
 
         for (int pass = 0; pass < Math.Max(0, smoothingPasses); pass++)
         {
             values = Smooth(values, grid);
         }
 
+        double minimum = GetMinimum(values, grid);
         double peak = GetPeak(values, grid);
-        double average = GetAverage(values, grid);
         Mesh mesh = new();
-        List<Point3d> centers = new();
         List<double> flatValues = new();
+        BoundingBox bounds = result.Model.Floor.Boundary.GetBoundingBox(true);
 
         for (int x = 0; x < grid.Width; x++)
         {
@@ -114,7 +122,6 @@ public static class CrowdHeatmapService
 
                 double cellValue = values[x, y];
                 Point3d center = grid.GetCellCenter(x, y);
-                centers.Add(center);
                 flatValues.Add(cellValue);
 
                 double normalized = peak <= 1e-9 ? 0.0 : cellValue / peak;
@@ -138,7 +145,7 @@ public static class CrowdHeatmapService
         mesh.Normals.ComputeNormals();
         mesh.Compact();
 
-        return new CrowdHeatmapResult(mesh, centers, flatValues, peak, average, safeMode);
+        return new CrowdHeatmapResult(mesh, flatValues, bounds, result.Model.Floor.CellSize, heightScale, minimum, peak, safeMode, legendTitle);
     }
 
     private static double[,] BuildModeField(
@@ -149,10 +156,13 @@ public static class CrowdHeatmapService
         double[,] speedCount,
         CrowdSimulationResult result,
         CrowdGrid grid,
-        bool normalizeByFrameCount)
+        bool normalizeByFrameCount,
+        double simulatedDuration)
     {
         double[,] values = new double[grid.Width, grid.Height];
         double frameDivisor = normalizeByFrameCount ? Math.Max(1, result.Frames.Count) : 1.0;
+        double cellArea = Math.Max(grid.Floor.CellSize * grid.Floor.CellSize, 1e-9);
+        double safeDuration = Math.Max(simulatedDuration, result.Model.TimeStep);
 
         for (int x = 0; x < grid.Width; x++)
         {
@@ -165,7 +175,9 @@ public static class CrowdHeatmapService
 
                 double averageSpeed = speedCount[x, y] <= 1e-9 ? 0.0 : speedSum[x, y] / speedCount[x, y];
                 double occupancyValue = occupancy[x, y] / frameDivisor;
-                double flowValue = flow[x, y] / frameDivisor;
+                double normalizedOccupancy = occupancy[x, y] / safeDuration;
+                double densityValue = normalizedOccupancy / cellArea;
+                double flowValue = flow[x, y] / safeDuration;
                 double congestionValue = occupancyValue * (1.0 + Math.Max(0.0, result.Model.AgentProfile.PreferredSpeed - averageSpeed));
 
                 switch (mode.ToLowerInvariant())
@@ -176,17 +188,32 @@ public static class CrowdHeatmapService
                     case "speed":
                         values[x, y] = averageSpeed;
                         break;
+                    case "density":
+                        values[x, y] = densityValue;
+                        break;
                     case "congestion":
                         values[x, y] = congestionValue;
                         break;
                     default:
-                        values[x, y] = occupancyValue;
+                        values[x, y] = normalizeByFrameCount ? normalizedOccupancy : occupancy[x, y];
                         break;
                 }
             }
         }
 
         return values;
+    }
+
+    private static string BuildLegendTitle(string mode, bool normalizeByFrameCount)
+    {
+        return mode.ToLowerInvariant() switch
+        {
+            "speed" => "Speed, m/s",
+            "density" => "Density, agents/m2",
+            "flow" => "Flow, agents/s",
+            "congestion" => "Congestion, relative",
+            _ => normalizeByFrameCount ? "Occupancy, normalized" : "Occupancy, agent-s/cell"
+        };
     }
 
     private static double[,] Smooth(double[,] values, CrowdGrid grid)
@@ -227,6 +254,25 @@ public static class CrowdHeatmapService
         return smoothed;
     }
 
+    private static double GetMinimum(double[,] values, CrowdGrid grid)
+    {
+        double minimum = double.PositiveInfinity;
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                minimum = Math.Min(minimum, values[x, y]);
+            }
+        }
+
+        return double.IsPositiveInfinity(minimum) ? 0.0 : minimum;
+    }
+
     private static double GetPeak(double[,] values, CrowdGrid grid)
     {
         double peak = 0.0;
@@ -246,28 +292,7 @@ public static class CrowdHeatmapService
         return peak;
     }
 
-    private static double GetAverage(double[,] values, CrowdGrid grid)
-    {
-        double sum = 0.0;
-        int count = 0;
-        for (int x = 0; x < grid.Width; x++)
-        {
-            for (int y = 0; y < grid.Height; y++)
-            {
-                if (!grid.IsWalkable(x, y))
-                {
-                    continue;
-                }
-
-                sum += values[x, y];
-                count++;
-            }
-        }
-
-        return count == 0 ? 0.0 : sum / count;
-    }
-
-    private static Color InterpolateHeatColor(double t)
+    internal static Color InterpolateHeatColor(double t)
     {
         t = Math.Max(0.0, Math.Min(1.0, t));
         if (t < 0.25)

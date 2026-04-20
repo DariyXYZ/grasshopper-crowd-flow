@@ -19,7 +19,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
         pManager.AddGenericParameter("Result", "R", "Crowd simulation result from Run Crowd Simulation.", GH_ParamAccess.list);
-        pManager.AddTextParameter("Mode", "Mode", "Heatmap mode: Occupancy, Flow, Speed, or Congestion.", GH_ParamAccess.list, "Occupancy");
+        pManager.AddTextParameter("Mode", "Mode", "Heatmap mode: Occupancy, Density, Flow, Speed, or Congestion.", GH_ParamAccess.list, "Occupancy");
         pManager.AddIntegerParameter("Smoothing", "S", "Number of smoothing passes on the heat field.", GH_ParamAccess.list, 2);
         pManager.AddNumberParameter("Height Scale", "H", "Optional height exaggeration for the heat mesh. Use 0 for a flat map.", GH_ParamAccess.list, 0.0);
         pManager.AddBooleanParameter("Normalize", "N", "Normalize values by frame count for easier scenario comparison.", GH_ParamAccess.list, true);
@@ -27,11 +27,11 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
     {
+        pManager.AddGenericParameter("Heatmap", "H", "Crowd heatmap result for downstream legend or reporting nodes.", GH_ParamAccess.item);
         pManager.AddMeshParameter("Heatmap Mesh", "M", "Colored mesh heatmap of crowd occupancy.", GH_ParamAccess.item);
-        pManager.AddPointParameter("Cell Centers", "C", "Heatmap sample cell centers.", GH_ParamAccess.list);
         pManager.AddNumberParameter("Values", "V", "Heat value per output cell.", GH_ParamAccess.list);
+        pManager.AddNumberParameter("Minimum Value", "Min", "Minimum heat value in the field.", GH_ParamAccess.item);
         pManager.AddNumberParameter("Peak Value", "P", "Maximum heat value in the field.", GH_ParamAccess.item);
-        pManager.AddNumberParameter("Average Value", "Avg", "Average heat value across walkable cells.", GH_ParamAccess.item);
         pManager.AddTextParameter("Resolved Mode", "Mode", "Resolved heatmap mode used for calculation.", GH_ParamAccess.item);
     }
 
@@ -69,11 +69,11 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
                 heightInputs.Count > 0 ? heightInputs[0] : 0.0,
                 normalizeInputs.Count > 0 ? normalizeInputs[0] : true);
 
-            DA.SetData(0, heatmap.Mesh);
-            DA.SetDataList(1, heatmap.CellCenters);
+            DA.SetData(0, heatmap);
+            DA.SetData(1, heatmap.Mesh);
             DA.SetDataList(2, heatmap.Values);
-            DA.SetData(3, heatmap.PeakValue);
-            DA.SetData(4, heatmap.AverageValue);
+            DA.SetData(3, heatmap.MinimumValue);
+            DA.SetData(4, heatmap.PeakValue);
             DA.SetData(5, heatmap.Mode);
         }
         catch (Exception ex)
