@@ -1,12 +1,8 @@
-# GhCrowdFlow
+# grasshopper-crowd-flow
 
 [![Build](https://github.com/DariyXYZ/grasshopper-crowd-flow/actions/workflows/build.yml/badge.svg)](https://github.com/DariyXYZ/grasshopper-crowd-flow/actions/workflows/build.yml)
 
 Grasshopper plugin for crowd movement simulation and architectural heatmap analysis in Rhino 8.
-
-> [!NOTE]
-> Public GitHub repository: `grasshopper-crowd-flow`.
-> Local workspace folder may still appear as `GhCrowdFlow-release` during release-preparation work.
 
 `GhCrowdFlow` is a focused public extraction of the crowd-simulation work from a larger internal toolset. It is designed for early-stage architectural studies where you need:
 
