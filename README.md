@@ -2,6 +2,10 @@
 
 Grasshopper plugin for crowd movement simulation and architectural heatmap analysis in Rhino 8.
 
+> [!NOTE]
+> Public GitHub repository: `grasshopper-crowd-flow`.
+> Local workspace folder may still appear as `GhCrowdFlow-release` during release-preparation work.
+
 `GhCrowdFlow` is a focused public extraction of the crowd-simulation work from a larger internal toolset. It is designed for early-stage architectural studies where you need:
 
 - believable pedestrian trajectories on a 2D floor
@@ -9,6 +13,44 @@ Grasshopper plugin for crowd movement simulation and architectural heatmap analy
 - congestion-aware exit choice
 - heatmap mesh outputs for circulation analysis
 - a Grasshopper-native workflow without external simulation software
+
+## Quick Start
+
+Requirements:
+
+- Rhino 8 with Grasshopper
+- .NET SDK 8
+- Windows
+
+1. Build from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+2. Deploy the `net48` plugin when Rhino is closed:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1 -DeployToGrasshopper
+```
+
+3. Open `examples/flow-demo/Flow.gh` and, if needed, `examples/flow-demo/Flow.3dm`.
+4. For report export tests, point `Export Crowd Report` to `templates/reporting/CrowdReport_Template.docx`.
+
+The full setup guide is in [docs/quick-start.md](docs/quick-start.md).
+
+## Visual Workflow
+
+```mermaid
+flowchart LR
+    A[Create Crowd Floor / Obstacles / Sources / Exits] --> B[Run Crowd Simulation]
+    B --> C[Review trajectories and core metrics]
+    B --> D[Create Crowd Heatmap]
+    D --> E[Read legend and circulation intensity]
+    B --> F[Export Crowd Image]
+    B --> G[Export Crowd Report]
+    F --> G
+```
 
 ## Features
 
@@ -27,36 +69,6 @@ Grasshopper plugin for crowd movement simulation and architectural heatmap analy
 - `examples/flow-demo/` ready-to-open Grasshopper and Rhino demo files
 - `templates/reporting/` crowd report DOCX template for `Export Crowd Report`
 - `docs/quick-start.md` end-to-end local build, deploy, and first-run guide
-
-## Quick Start
-
-Requirements:
-
-- Rhino 8 with Grasshopper
-- .NET SDK 8
-- Windows
-
-1. Build the plugin from the repository root:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1
-```
-
-2. Deploy the `net48` Grasshopper plugin into the local Grasshopper libraries folder:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1 -DeployToGrasshopper
-```
-
-3. Open Rhino 8 and Grasshopper.
-4. Open the sample definition:
-   `examples/flow-demo/Flow.gh`
-5. If the sample scene needs Rhino geometry context, open:
-   `examples/flow-demo/Flow.3dm`
-6. For report export tests, point `Export Crowd Report` to:
-   `templates/reporting/CrowdReport_Template.docx`
-
-The full setup guide is in [docs/quick-start.md](docs/quick-start.md).
 
 ## Build
 
