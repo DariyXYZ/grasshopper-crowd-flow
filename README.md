@@ -1,5 +1,7 @@
 # GhCrowdFlow
 
+[![Build](https://github.com/DariyXYZ/grasshopper-crowd-flow/actions/workflows/build.yml/badge.svg)](https://github.com/DariyXYZ/grasshopper-crowd-flow/actions/workflows/build.yml)
+
 Grasshopper plugin for crowd movement simulation and architectural heatmap analysis in Rhino 8.
 
 > [!NOTE]
