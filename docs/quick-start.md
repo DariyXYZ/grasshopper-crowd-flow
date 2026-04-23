@@ -11,9 +11,9 @@ This guide is for a first-time public user who wants to build `GhCrowdFlow`, dep
 
 ## Repository Contents You Will Use First
 
-- `examples/flow-demo/Flow.gh`
-- `examples/flow-demo/Flow.3dm`
-- `templates/reporting/CrowdReport_Template.docx`
+- `tests/grasshopper/crowd/flow-demo/Flow.gh`
+- `tests/grasshopper/crowd/flow-demo/Flow.3dm`
+- `tests/grasshopper/crowd/flow-demo/CrowdReport_Template.docx`
 - `build.ps1`
 
 ## 1. Build The Plugin
@@ -39,9 +39,9 @@ The deploy flow targets the `net48` build used by the local Grasshopper plugin p
 ## 3. Open The Demo Files
 
 1. Start Rhino 8.
-2. Open `examples/flow-demo/Flow.3dm`.
+2. Open `tests/grasshopper/crowd/flow-demo/Flow.3dm`.
 3. Open Grasshopper.
-4. Open `examples/flow-demo/Flow.gh`.
+4. Open `tests/grasshopper/crowd/flow-demo/Flow.gh`.
 
 If Grasshopper asks to trust or load the local plugin, allow it and reopen the definition if needed.
 
@@ -59,7 +59,7 @@ Suggested first pass:
 
 The repo includes a report template for the export workflow:
 
-- `templates/reporting/CrowdReport_Template.docx`
+- `tests/grasshopper/crowd/flow-demo/CrowdReport_Template.docx`
 
 Suggested export flow:
 

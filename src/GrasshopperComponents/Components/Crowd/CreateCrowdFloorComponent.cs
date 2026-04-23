@@ -14,6 +14,8 @@ public sealed class CreateCrowdFloorComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("2b2a7a76-c861-4d2f-84a7-30cabd5db717");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdFloor;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

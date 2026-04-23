@@ -14,6 +14,8 @@ public sealed class CreateCrowdModelComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("54d2cc44-b66f-411a-a036-f923d6f2f993");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdModel;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

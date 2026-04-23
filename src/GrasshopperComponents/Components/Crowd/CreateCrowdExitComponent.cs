@@ -14,6 +14,8 @@ public sealed class CreateCrowdExitComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("d547666c-d67d-42e0-b3ab-ae5bd7876e6d");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdExit;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

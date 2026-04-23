@@ -17,11 +17,13 @@ public sealed class RunCrowdSimulationComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("93d67d3f-16cb-4730-8712-18c8027e2f6d");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdRun;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
-        pManager.AddGenericParameter("Crowd Model", "M", "Crowd model assembled by Create Crowd Model.", GH_ParamAccess.item);
+        pManager.AddGenericParameter("Crowd Model", "M", "Crowd model assembled by Create Crowd Model.", GH_ParamAccess.list);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -40,19 +42,20 @@ public sealed class RunCrowdSimulationComponent : IndGhComponent
         pManager.AddGenericParameter("Result", "R", "Full crowd simulation result object.", GH_ParamAccess.item);
         pManager.AddIntegerParameter("Exit Indices", "EI", "Exit indices corresponding to the Exit Split values.", GH_ParamAccess.list);
         pManager.AddIntegerParameter("Exit Counts", "EC", "Completed-agent counts corresponding to the Exit Split values.", GH_ParamAccess.list);
+        pManager.AddTextParameter("Profile", "Prof", "Simulation stage timings for debugging and optimization.", GH_ParamAccess.item);
     }
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-        object? modelInput = null;
+        List<object> modelInputs = new();
 
-        if (!DA.GetData(0, ref modelInput) || modelInput == null)
+        if (!DA.GetDataList(0, modelInputs) || modelInputs.Count == 0)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "A crowd model is required.");
             return;
         }
 
-        if (!GhObjectExtraction.TryExtract(modelInput, out CrowdModel? model) || model == null)
+        if (!GhObjectExtraction.TryExtract(modelInputs[0], out CrowdModel? model) || model == null)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Unable to extract CrowdModel from input.");
             return;
@@ -96,6 +99,7 @@ public sealed class RunCrowdSimulationComponent : IndGhComponent
             DA.SetData(11, result);
             DA.SetDataList(12, exitIndices);
             DA.SetDataList(13, exitCounts);
+            DA.SetData(14, result.Profile.ToString());
         }
         catch (Exception ex)
         {

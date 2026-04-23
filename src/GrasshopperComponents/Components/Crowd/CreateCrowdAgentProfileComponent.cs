@@ -13,6 +13,8 @@ public sealed class CreateCrowdAgentProfileComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("44908e5f-4962-46c2-bfb1-764759c81066");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdAgent;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

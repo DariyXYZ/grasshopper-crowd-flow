@@ -32,8 +32,8 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 powershell -ExecutionPolicy Bypass -File .\build.ps1 -DeployToGrasshopper
 ```
 
-3. Open `examples/flow-demo/Flow.gh` and, if needed, `examples/flow-demo/Flow.3dm`.
-4. For report export tests, point `Export Crowd Report` to `templates/reporting/CrowdReport_Template.docx`.
+3. Open `tests/grasshopper/crowd/flow-demo/Flow.gh` and, if needed, `tests/grasshopper/crowd/flow-demo/Flow.3dm`.
+4. For report export tests, point `Export Crowd Report` to `tests/grasshopper/crowd/flow-demo/CrowdReport_Template.docx`.
 
 The full setup guide is in [docs/quick-start.md](docs/quick-start.md).
 
@@ -64,8 +64,8 @@ flowchart LR
 
 - `src/Crowd/` simulation engine and heatmap services
 - `src/GrasshopperComponents/` Grasshopper `.gha` plugin with crowd components
-- `examples/flow-demo/` ready-to-open Grasshopper and Rhino demo files
-- `templates/reporting/` crowd report DOCX template for `Export Crowd Report`
+- `tests/grasshopper/crowd/flow-demo/` ready-to-open Rhino, Grasshopper, and report-template test files
+- `docs/crowd/` crowd-specific architecture, build, debugging, and iteration notes
 - `docs/quick-start.md` end-to-end local build, deploy, and first-run guide
 
 ## Build
@@ -106,9 +106,9 @@ This public repository currently focuses on crowd simulation only. Broader inter
 
 ## Included Public Test Materials
 
-- `examples/flow-demo/Flow.gh` sample Grasshopper definition
-- `examples/flow-demo/Flow.3dm` Rhino scene for the sample definition
-- `templates/reporting/CrowdReport_Template.docx` report template for export-node testing
+- `tests/grasshopper/crowd/flow-demo/Flow.gh` sample Grasshopper definition
+- `tests/grasshopper/crowd/flow-demo/Flow.3dm` Rhino scene for the sample definition
+- `tests/grasshopper/crowd/flow-demo/CrowdReport_Template.docx` report template for export-node testing
 - `docs/quick-start.md` user-facing setup walkthrough
 - `docs/reporting-workflow.md` reporting and template workflow notes
 

@@ -14,6 +14,8 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("71663952-a28d-4514-bfa8-cf91d70f6fcb");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdHeatmap;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
@@ -23,6 +25,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
         pManager.AddIntegerParameter("Smoothing", "S", "Number of smoothing passes on the heat field.", GH_ParamAccess.list, 2);
         pManager.AddNumberParameter("Height Scale", "H", "Optional height exaggeration for the heat mesh. Use 0 for a flat map.", GH_ParamAccess.list, 0.0);
         pManager.AddBooleanParameter("Normalize", "N", "Normalize values by frame count for easier scenario comparison.", GH_ParamAccess.list, true);
+        pManager.AddBooleanParameter("Presentation", "P", "Apply report-friendly visual smoothing and corner peak softening.", GH_ParamAccess.list, false);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -42,6 +45,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
         List<int> smoothingInputs = new();
         List<double> heightInputs = new();
         List<bool> normalizeInputs = new();
+        List<bool> presentationInputs = new();
 
         if (!DA.GetDataList(0, resultInputs) || resultInputs.Count == 0)
         {
@@ -53,6 +57,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
         DA.GetDataList(2, smoothingInputs);
         DA.GetDataList(3, heightInputs);
         DA.GetDataList(4, normalizeInputs);
+        DA.GetDataList(5, presentationInputs);
 
         if (!GhObjectExtraction.TryExtract(resultInputs[0], out CrowdSimulationResult? result) || result == null)
         {
@@ -67,7 +72,8 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
                 modeInputs.Count > 0 ? modeInputs[0] : "Occupancy",
                 smoothingInputs.Count > 0 ? smoothingInputs[0] : 2,
                 heightInputs.Count > 0 ? heightInputs[0] : 0.0,
-                normalizeInputs.Count > 0 ? normalizeInputs[0] : true);
+                normalizeInputs.Count > 0 ? normalizeInputs[0] : true,
+                presentationInputs.Count > 0 && presentationInputs[0]);
 
             DA.SetData(0, heatmap);
             DA.SetData(1, heatmap.Mesh);

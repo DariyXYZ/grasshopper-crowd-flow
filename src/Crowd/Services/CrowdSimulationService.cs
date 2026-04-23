@@ -1,6 +1,7 @@
 using Crowd.Models;
 using Crowd.Utilities;
 using Rhino.Geometry;
+using System.Diagnostics;
 
 namespace Crowd.Services;
 
@@ -90,9 +91,15 @@ public static class CrowdSimulationService
     private const double ExitAwarenessRadius = 4.5;
     private const double ExitQueueRadius = 6.0;
     private const double ExitSoftmaxTemperature = 0.42;
-    private const double FieldRegressionCellFactor = 0.08;
-    private const double FieldRegressionStepFactor = 0.04;
+    private const double FieldRegressionCellFactor = 0.35;
+    private const double FieldRegressionStepFactor = 0.45;
     private const double ConstrainedWinnerCollapseGap = 0.24;
+    private const double StalledTailCompletionGraceSeconds = 90.0;
+    private const double StalledTailMinimumStuckSeconds = 12.0;
+    private const double StalledTailAverageSpeedThreshold = 0.05;
+    private const double StalledTailMaxActiveShare = 0.75;
+    private const double StalledTailLongRunActiveShare = 0.5;
+    private const double StalledTailLongRunDurationShare = 0.65;
 
     /// <summary>
     /// Simulates pedestrians on a 2D walkable floor using a grid-derived distance field and lightweight local avoidance.
@@ -102,13 +109,20 @@ public static class CrowdSimulationService
     /// <returns>Recorded frames, agent paths, and summary counts for downstream Grasshopper visualization.</returns>
     public static CrowdSimulationResult Run(CrowdModel model)
     {
+        Stopwatch totalStopwatch = Stopwatch.StartNew();
         if (model == null)
         {
             throw new ArgumentNullException(nameof(model));
         }
 
+        Stopwatch stageStopwatch = Stopwatch.StartNew();
         CrowdGrid grid = new(model.Floor, model.Obstacles);
+        double gridBuildMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
+
+        stageStopwatch.Restart();
         List<double[,]> exitFields = model.Exits.Select(exit => CrowdPathFieldBuilder.Build(grid, exit)).ToList();
+        double pathFieldBuildMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
+
         List<CrowdAgentState> agents = new();
         Dictionary<int, List<Point3d>> trajectories = new();
         List<CrowdFrame> frames = new();
@@ -118,24 +132,57 @@ public static class CrowdSimulationService
         double time = 0.0;
         Random random = new(12345);
         int totalExpectedAgents = model.Sources.Sum(source => source.TotalAgents);
+        int totalSpawned = 0;
+        int totalCompleted = 0;
+        int activeAgentCount = 0;
+        double lastCompletionTime = 0.0;
+        string terminationReason = "maximum simulation duration reached";
         double maxSimulationDuration = EstimateMaximumSimulationDuration(model);
 
-        RecordFrame(frames, agents, time);
+        RecordFrame(frames, agents, time, out activeAgentCount, out totalCompleted);
 
+        stageStopwatch.Restart();
         while (time < maxSimulationDuration)
         {
-            SpawnAgents(model, grid, exitFields, agents, trajectories, sourceRemainders, sourceSpawned, ref nextAgentId, time, random);
+            totalSpawned += SpawnAgents(model, grid, exitFields, agents, trajectories, sourceRemainders, sourceSpawned, ref nextAgentId, time, random);
             AdvanceAgents(model, grid, exitFields, agents, trajectories, time, random);
 
             time += model.TimeStep;
-            RecordFrame(frames, agents, time);
-
-            if (sourceSpawned.Sum() >= totalExpectedAgents && agents.Count(agent => !agent.IsFinished) == 0)
+            int previousCompleted = totalCompleted;
+            RecordFrame(frames, agents, time, out activeAgentCount, out totalCompleted);
+            if (totalCompleted > previousCompleted)
             {
+                lastCompletionTime = time;
+            }
+
+            if (totalSpawned >= totalExpectedAgents && activeAgentCount == 0)
+            {
+                terminationReason = "all agents completed";
+                break;
+            }
+
+            if (totalSpawned >= totalExpectedAgents
+                && activeAgentCount > 0
+                && time - lastCompletionTime >= StalledTailCompletionGraceSeconds
+                && IsStalledTail(agents, totalSpawned, totalCompleted, activeAgentCount))
+            {
+                terminationReason = "stalled active tail";
+                break;
+            }
+
+            if (totalSpawned >= totalExpectedAgents
+                && activeAgentCount > 0
+                && totalCompleted > 0
+                && activeAgentCount / Math.Max(1.0, totalSpawned) <= StalledTailLongRunActiveShare
+                && time >= maxSimulationDuration * StalledTailLongRunDurationShare)
+            {
+                terminationReason = "long-running active tail";
                 break;
             }
         }
+        double simulationLoopMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
 
+        stageStopwatch.Restart();
         List<CrowdAgentPath> paths = agents
             .OrderBy(agent => agent.Id)
             .Select(agent => new CrowdAgentPath(
@@ -148,18 +195,40 @@ public static class CrowdSimulationService
             .ToList();
 
         CrowdSimulationCoreMetrics coreMetrics = CrowdSimulationMetricsService.BuildCoreMetrics(model, paths, time);
+        double resultBuildMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
+        totalStopwatch.Stop();
+        CrowdSimulationProfile profile = new(
+            gridBuildMilliseconds,
+            pathFieldBuildMilliseconds,
+            simulationLoopMilliseconds,
+            resultBuildMilliseconds,
+            totalStopwatch.Elapsed.TotalMilliseconds,
+            grid.Width,
+            grid.Height,
+            model.Exits.Count,
+            frames.Count,
+            totalSpawned,
+            totalCompleted,
+            activeAgentCount,
+            terminationReason,
+            BuildActiveTailSummary(agents, grid, exitFields),
+            Math.Max(0.0, time - lastCompletionTime),
+            maxSimulationDuration,
+            time);
+
         return new CrowdSimulationResult(
             model,
             frames,
             paths,
             coreMetrics,
-            totalSpawned: agents.Count,
-            totalFinished: agents.Count(agent => agent.IsFinished),
+            profile,
+            totalSpawned: totalSpawned,
+            totalFinished: totalCompleted,
             simulatedDuration: time,
-            completedAllAgents: agents.Count == totalExpectedAgents && agents.All(agent => agent.IsFinished));
+            completedAllAgents: totalSpawned == totalExpectedAgents && activeAgentCount == 0);
     }
 
-    private static void SpawnAgents(
+    private static int SpawnAgents(
         CrowdModel model,
         CrowdGrid grid,
         IReadOnlyList<double[,]> exitFields,
@@ -171,6 +240,7 @@ public static class CrowdSimulationService
         double time,
         Random random)
     {
+        int spawnedCount = 0;
         for (int sourceIndex = 0; sourceIndex < model.Sources.Count; sourceIndex++)
         {
             CrowdSource source = model.Sources[sourceIndex];
@@ -187,7 +257,7 @@ public static class CrowdSimulationService
                 continue;
             }
 
-            sourceRemainders[sourceIndex] -= toSpawn;
+            int spawnedFromSource = 0;
             for (int count = 0; count < toSpawn; count++)
             {
                 if (!grid.TryGetClosestWalkableCell(source.Location, out int sx, out int sy))
@@ -205,8 +275,14 @@ public static class CrowdSimulationService
                 agents.Add(agent);
                 trajectories[agent.Id] = new List<Point3d> { spawnPoint };
                 sourceSpawned[sourceIndex]++;
+                spawnedCount++;
+                spawnedFromSource++;
             }
+
+            sourceRemainders[sourceIndex] -= spawnedFromSource;
         }
+
+        return spawnedCount;
     }
 
     private static void AdvanceAgents(
@@ -265,6 +341,10 @@ public static class CrowdSimulationService
             }
 
             proposed = StabilizeProposedMove(agent, timeStep, grid, exitFields[agent.ExitIndex], activeAgents, spatialIndex, proposed);
+            if (agent.StuckDuration >= StuckActivationTime && proposed.DistanceTo(agent.Position) <= 1e-6)
+            {
+                proposed = CreateDeadlockReleaseMove(agent, timeStep, grid, exitFields[agent.ExitIndex], activeAgents, spatialIndex, motionVelocity);
+            }
 
             agent.Velocity = (proposed - agent.Position) / Math.Max(timeStep, 1e-6);
             agent.Position = proposed;
@@ -313,7 +393,8 @@ public static class CrowdSimulationService
         routeBlend = Lerp(routeBlend, 0.74, routeFocus * 0.35);
 
         Vector3d navigationalDirection = CombineDirections(routeDirection, localDirection, routeBlend);
-        Vector3d direction = CombineDirections(navigationalDirection, fieldDirection, 0.68);
+        double fieldBlend = fieldDirection.Length > 1e-6 ? 0.48 : 0.68;
+        Vector3d direction = CombineDirections(navigationalDirection, fieldDirection, fieldBlend);
         if (!direction.Unitize())
         {
             direction = navigationalDirection;
@@ -1712,13 +1793,29 @@ public static class CrowdSimulationService
             return CreateFieldRecoveryMove(agent, timeStep, grid, field, activeAgents, spatialIndex);
         }
 
+        double moveDistance = proposed.DistanceTo(agent.Position);
         double regressionAllowance = Math.Max(
             grid.Floor.CellSize * FieldRegressionCellFactor,
             agent.PreferredSpeed * timeStep * FieldRegressionStepFactor);
+        if (agent.StuckDuration >= StuckActivationTime)
+        {
+            regressionAllowance = Math.Max(
+                regressionAllowance,
+                Math.Min(grid.Floor.CellSize * 0.85, Math.Max(moveDistance * 0.75, agent.Radius * 0.9)));
+        }
 
         if (proposedFieldDistance <= currentFieldDistance + regressionAllowance)
         {
             return proposed;
+        }
+
+        if (agent.StuckDuration >= StuckActivationTime * 0.65 && moveDistance > 1e-6)
+        {
+            double escapeAllowance = Math.Max(grid.Floor.CellSize * 1.1, moveDistance * 1.2);
+            if (proposedFieldDistance <= currentFieldDistance + escapeAllowance)
+            {
+                return proposed;
+            }
         }
 
         Point3d recovered = CreateFieldRecoveryMove(agent, timeStep, grid, field, activeAgents, spatialIndex);
@@ -1775,6 +1872,95 @@ public static class CrowdSimulationService
         }
 
         return agent.Position;
+    }
+
+    private static Point3d CreateDeadlockReleaseMove(
+        CrowdAgentState agent,
+        double timeStep,
+        CrowdGrid grid,
+        double[,] field,
+        IReadOnlyList<CrowdAgentState> activeAgents,
+        AgentSpatialIndex spatialIndex,
+        Vector3d preferredVelocity)
+    {
+        Vector3d baseDirection = preferredVelocity;
+        if (!baseDirection.Unitize())
+        {
+            baseDirection = SampleContinuousFlowDirection(agent.Position, grid, field);
+        }
+
+        if (!baseDirection.Unitize() && grid.TryGetClosestWalkableCell(agent.Position, out int x, out int y))
+        {
+            baseDirection = EstimateFieldDirection(grid, field, x, y);
+        }
+
+        if (!baseDirection.Unitize())
+        {
+            return agent.Position;
+        }
+
+        double currentFieldDistance = GetFieldDistanceAtPoint(agent.Position, grid, field);
+        if (double.IsInfinity(currentFieldDistance))
+        {
+            currentFieldDistance = double.PositiveInfinity;
+        }
+
+        double baseStep = Math.Max(agent.PreferredSpeed * timeStep * 0.9, Math.Min(grid.Floor.CellSize * 0.75, agent.Radius * 2.0));
+        double allowedRegression = Math.Max(grid.Floor.CellSize * 1.35, agent.Radius * 2.4);
+        Point3d bestPoint = agent.Position;
+        double bestScore = double.NegativeInfinity;
+
+        double baseAngle = Math.Atan2(baseDirection.Y, baseDirection.X);
+        double[] angleOffsets =
+        {
+            0.0,
+            Math.PI / 9.0,
+            -Math.PI / 9.0,
+            Math.PI / 4.0,
+            -Math.PI / 4.0,
+            Math.PI / 2.0,
+            -Math.PI / 2.0,
+            Math.PI
+        };
+        double[] stepFactors = { 1.0, 0.7, 0.45 };
+        double occupancyLimit = agent.StuckDuration >= StuckActivationTime * 2.0
+            ? agent.Radius * 0.35
+            : agent.Radius * 0.65;
+
+        foreach (double stepFactor in stepFactors)
+        {
+            foreach (double angleOffset in angleOffsets)
+            {
+                double angle = baseAngle + angleOffset;
+                Vector3d direction = new(Math.Cos(angle), Math.Sin(angle), 0.0);
+                Point3d candidate = agent.Position + (direction * (baseStep * stepFactor));
+                if (!grid.IsWalkable(candidate) || IsOccupiedByOthers(agent, candidate, activeAgents, spatialIndex, occupancyLimit))
+                {
+                    continue;
+                }
+
+                double candidateFieldDistance = GetFieldDistanceAtPoint(candidate, grid, field);
+                if (!double.IsInfinity(candidateFieldDistance) && !double.IsInfinity(currentFieldDistance)
+                    && candidateFieldDistance > currentFieldDistance + allowedRegression)
+                {
+                    continue;
+                }
+
+                double progressScore = double.IsInfinity(candidateFieldDistance) || double.IsInfinity(currentFieldDistance)
+                    ? 0.0
+                    : currentFieldDistance - candidateFieldDistance;
+                double alignmentScore = Vector3d.Multiply(direction, baseDirection);
+                double clearanceScore = GetClearanceScore(candidate, grid, Math.Max(agent.Radius * 3.0, agent.ComfortDistance + agent.Radius));
+                double score = (progressScore * 1.8) + (alignmentScore * 0.45) + (clearanceScore * 0.25) + (stepFactor * 0.15);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestPoint = candidate;
+                }
+            }
+        }
+
+        return bestScore > double.NegativeInfinity ? bestPoint : agent.Position;
     }
 
     private static double GetRouteClarity(Point3d position, CrowdGrid grid, double[,] field, Vector3d direction)
@@ -1982,8 +2168,13 @@ public static class CrowdSimulationService
         }
 
         double improvement = currentFieldDistance - nearFieldDistance;
-        double speedFactor = RemapClamped(improvement, -grid.Floor.CellSize * 0.15, grid.Floor.CellSize * 0.6, 0.22, 1.0);
-        return Math.Max(0.16, agent.PreferredSpeed * speedFactor);
+        double speedFactor = RemapClamped(improvement, -grid.Floor.CellSize * 0.3, grid.Floor.CellSize * 0.6, 0.42, 1.0);
+        if (agent.StuckDuration >= StuckActivationTime)
+        {
+            speedFactor = Math.Max(speedFactor, 0.62);
+        }
+
+        return Math.Max(0.28, agent.PreferredSpeed * speedFactor);
     }
 
     private static Vector3d RotateTowards(Vector3d currentDirection, Vector3d targetDirection, double maxAngle)
@@ -2395,15 +2586,21 @@ public static class CrowdSimulationService
     private static Vector3d SampleContinuousFlowDirection(Point3d position, CrowdGrid grid, double[,] field)
     {
         double step = Math.Max(grid.Floor.CellSize * 0.6, 0.25);
+        double center = GetFieldDistanceAtPoint(position, grid, field);
+        if (double.IsInfinity(center))
+        {
+            return Vector3d.Zero;
+        }
+
         double fx1 = SampleFieldValue(new Point3d(position.X + step, position.Y, position.Z), grid, field);
         double fx0 = SampleFieldValue(new Point3d(position.X - step, position.Y, position.Z), grid, field);
         double fy1 = SampleFieldValue(new Point3d(position.X, position.Y + step, position.Z), grid, field);
         double fy0 = SampleFieldValue(new Point3d(position.X, position.Y - step, position.Z), grid, field);
 
-        if (double.IsInfinity(fx1) || double.IsInfinity(fx0) || double.IsInfinity(fy1) || double.IsInfinity(fy0))
-        {
-            return Vector3d.Zero;
-        }
+        fx1 = double.IsInfinity(fx1) ? center : fx1;
+        fx0 = double.IsInfinity(fx0) ? center : fx0;
+        fy1 = double.IsInfinity(fy1) ? center : fy1;
+        fy0 = double.IsInfinity(fy0) ? center : fy0;
 
         Vector3d direction = new(
             fx0 - fx1,
@@ -2445,6 +2642,61 @@ public static class CrowdSimulationService
     {
         double value = SampleFieldValue(point, grid, field);
         return double.IsInfinity(value) ? double.PositiveInfinity : value;
+    }
+
+    private static string BuildActiveTailSummary(
+        IReadOnlyList<CrowdAgentState> agents,
+        CrowdGrid grid,
+        IReadOnlyList<double[,]> exitFields)
+    {
+        List<CrowdAgentState> activeAgents = agents.Where(agent => !agent.IsFinished).ToList();
+        if (activeAgents.Count == 0)
+        {
+            return "none";
+        }
+
+        double finiteDistanceSum = 0.0;
+        double minimumDistance = double.PositiveInfinity;
+        double maximumDistance = 0.0;
+        double speedSum = 0.0;
+        int finiteDistanceCount = 0;
+        Dictionary<int, int> byExit = new();
+
+        foreach (CrowdAgentState agent in activeAgents)
+        {
+            speedSum += agent.Velocity.Length;
+
+            byExit.TryGetValue(agent.ExitIndex, out int exitCount);
+            byExit[agent.ExitIndex] = exitCount + 1;
+
+            if (agent.ExitIndex < 0 || agent.ExitIndex >= exitFields.Count)
+            {
+                continue;
+            }
+
+            double distance = GetFieldDistanceAtPoint(agent.Position, grid, exitFields[agent.ExitIndex]);
+            if (double.IsInfinity(distance))
+            {
+                continue;
+            }
+
+            finiteDistanceSum += distance;
+            minimumDistance = Math.Min(minimumDistance, distance);
+            maximumDistance = Math.Max(maximumDistance, distance);
+            finiteDistanceCount++;
+        }
+
+        string distanceSummary = finiteDistanceCount == 0
+            ? "field unreachable"
+            : $"field min/avg/max {minimumDistance:0.##}/{finiteDistanceSum / finiteDistanceCount:0.##}/{maximumDistance:0.##} m";
+        string exitSummary = string.Join(
+            ", ",
+            byExit
+                .OrderBy(pair => pair.Key)
+                .Select(pair => $"exit {pair.Key + 1}: {pair.Value}"));
+
+        double stuckSum = activeAgents.Sum(agent => agent.StuckDuration);
+        return $"{activeAgents.Count} active, avg speed {speedSum / activeAgents.Count:0.###} m/s, avg stuck {stuckSum / activeAgents.Count:0.#} s, {distanceSummary}, {exitSummary}";
     }
 
     private static double ResolveFiniteFieldValue(double[,] field, CrowdGrid grid, int x, int y)
@@ -2640,8 +2892,13 @@ public static class CrowdSimulationService
 
     private static bool IsOccupied(Point3d point, IEnumerable<CrowdAgentState> agents, double minDistance)
     {
-        foreach (CrowdAgentState agent in agents.Where(agent => !agent.IsFinished))
+        foreach (CrowdAgentState agent in agents)
         {
+            if (agent.IsFinished)
+            {
+                continue;
+            }
+
             if (agent.Position.DistanceTo(point) < minDistance)
             {
                 return true;
@@ -2687,24 +2944,74 @@ public static class CrowdSimulationService
         return false;
     }
 
-    private static void RecordFrame(List<CrowdFrame> frames, IEnumerable<CrowdAgentState> agents, double time)
+    private static void RecordFrame(
+        List<CrowdFrame> frames,
+        IReadOnlyList<CrowdAgentState> agents,
+        double time,
+        out int activeCount,
+        out int finishedCount)
     {
-        List<CrowdAgentState> snapshot = agents.ToList();
-        List<Point3d> activePositions = snapshot
-            .Where(agent => !agent.IsFinished)
-            .Select(agent => agent.Position)
-            .ToList();
-        List<double> activeSpeeds = snapshot
-            .Where(agent => !agent.IsFinished)
-            .Select(agent => agent.Velocity.Length)
-            .ToList();
+        List<Point3d> activePositions = new(agents.Count);
+        List<double> activeSpeeds = new(agents.Count);
+        finishedCount = 0;
+
+        foreach (CrowdAgentState agent in agents)
+        {
+            if (agent.IsFinished)
+            {
+                finishedCount++;
+                continue;
+            }
+
+            activePositions.Add(agent.Position);
+            activeSpeeds.Add(agent.Velocity.Length);
+        }
+
+        activeCount = activePositions.Count;
 
         frames.Add(new CrowdFrame(
             time,
             activePositions,
             activeSpeeds,
-            activeCount: activePositions.Count,
-            finishedCount: snapshot.Count(agent => agent.IsFinished)));
+            activeCount,
+            finishedCount));
+    }
+
+    private static bool IsStalledTail(
+        IReadOnlyList<CrowdAgentState> agents,
+        int totalSpawned,
+        int completedCount,
+        int activeCount)
+    {
+        if (activeCount <= 0 || completedCount <= 0 || totalSpawned <= 0)
+        {
+            return false;
+        }
+
+        double activeShare = activeCount / Math.Max(1.0, totalSpawned);
+        if (activeShare <= StalledTailMaxActiveShare)
+        {
+            return true;
+        }
+
+        double speedSum = 0.0;
+        int stalledCount = 0;
+        foreach (CrowdAgentState agent in agents)
+        {
+            if (agent.IsFinished)
+            {
+                continue;
+            }
+
+            speedSum += agent.Velocity.Length;
+            if (agent.StuckDuration >= StalledTailMinimumStuckSeconds)
+            {
+                stalledCount++;
+            }
+        }
+
+        double averageSpeed = speedSum / activeCount;
+        return stalledCount == activeCount && averageSpeed <= StalledTailAverageSpeedThreshold;
     }
 
     private static Vector3d BlendVelocity(Vector3d currentVelocity, Vector3d desiredVelocity, double maxSpeed, double keepFactor)

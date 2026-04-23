@@ -9,7 +9,7 @@
 
 Use the bundled template:
 
-- `templates/reporting/CrowdReport_Template.docx`
+- `tests/grasshopper/crowd/flow-demo/CrowdReport_Template.docx`
 
 ## Expected Workflow
 

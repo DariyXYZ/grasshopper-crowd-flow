@@ -7,6 +7,7 @@ public sealed class CrowdSimulationResult
         IReadOnlyList<CrowdFrame> frames,
         IReadOnlyList<CrowdAgentPath> agentPaths,
         CrowdSimulationCoreMetrics coreMetrics,
+        CrowdSimulationProfile profile,
         int totalSpawned,
         int totalFinished,
         double simulatedDuration,
@@ -16,6 +17,7 @@ public sealed class CrowdSimulationResult
         Frames = frames ?? throw new ArgumentNullException(nameof(frames));
         AgentPaths = agentPaths ?? throw new ArgumentNullException(nameof(agentPaths));
         CoreMetrics = coreMetrics ?? throw new ArgumentNullException(nameof(coreMetrics));
+        Profile = profile ?? throw new ArgumentNullException(nameof(profile));
         TotalSpawned = totalSpawned;
         TotalFinished = totalFinished;
         SimulatedDuration = simulatedDuration;
@@ -29,6 +31,8 @@ public sealed class CrowdSimulationResult
     public IReadOnlyList<CrowdAgentPath> AgentPaths { get; }
 
     public CrowdSimulationCoreMetrics CoreMetrics { get; }
+
+    public CrowdSimulationProfile Profile { get; }
 
     public int TotalSpawned { get; }
 

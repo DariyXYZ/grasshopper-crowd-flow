@@ -14,6 +14,8 @@ public sealed class CreateCrowdSourceComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("a5a7695a-c3d9-4ed2-95f0-f878d78d9794");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdSource;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

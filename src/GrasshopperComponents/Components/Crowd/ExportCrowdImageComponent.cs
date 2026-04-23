@@ -21,6 +21,8 @@ public sealed class ExportCrowdImageComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("f6413379-31da-4234-b2dc-8d2a36af3532");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdExportImage;
 
     protected override GH_Exposure DefaultExposure => GH_Exposure.secondary;
@@ -28,15 +30,15 @@ public sealed class ExportCrowdImageComponent : IndGhComponent
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
         pManager.AddGenericParameter("Content", "C", "Geometry, CrowdModel, CrowdSimulationResult, or CrowdHeatmapResult to capture.", GH_ParamAccess.list);
-        pManager.AddBoxParameter("Frame", "F", "Optional explicit frame box. Leave empty to frame input content automatically.", GH_ParamAccess.item);
-        pManager.AddTextParameter("File Path", "Path", "Target PNG file path.", GH_ParamAccess.item);
-        pManager.AddIntegerParameter("Width", "W", "Image width in pixels.", GH_ParamAccess.item, 2400);
-        pManager.AddIntegerParameter("Height", "H", "Image height in pixels.", GH_ParamAccess.item, 1600);
-        pManager.AddNumberParameter("Margin", "M", "Extra framing margin as a fraction of diagonal size.", GH_ParamAccess.item, 0.05);
-        pManager.AddBooleanParameter("Top View", "Top", "Use a dedicated temporary top view for stable report capture.", GH_ParamAccess.item, true);
-        pManager.AddBooleanParameter("Clean View", "Clean", "Hide grid and axes and apply display mode styling.", GH_ParamAccess.item, true);
-        pManager.AddTextParameter("Display Mode", "Mode", "Rhino display mode name, for example Rendered or Shaded.", GH_ParamAccess.item, "Rendered");
-        pManager.AddBooleanParameter("Run", "Run", "Set to true to export the image.", GH_ParamAccess.item, false);
+        pManager.AddBoxParameter("Frame", "F", "Optional explicit frame box. Leave empty to frame input content automatically.", GH_ParamAccess.list);
+        pManager.AddTextParameter("File Path", "Path", "Target PNG file path.", GH_ParamAccess.list);
+        pManager.AddIntegerParameter("Width", "W", "Image width in pixels.", GH_ParamAccess.list, 2400);
+        pManager.AddIntegerParameter("Height", "H", "Image height in pixels.", GH_ParamAccess.list, 1600);
+        pManager.AddNumberParameter("Margin", "M", "Extra framing margin as a fraction of diagonal size.", GH_ParamAccess.list, 0.05);
+        pManager.AddBooleanParameter("Top View", "Top", "Use a dedicated temporary top view for stable report capture.", GH_ParamAccess.list, true);
+        pManager.AddBooleanParameter("Clean View", "Clean", "Hide grid and axes and apply display mode styling.", GH_ParamAccess.list, true);
+        pManager.AddTextParameter("Display Mode", "Mode", "Rhino display mode name, for example Rendered or Shaded.", GH_ParamAccess.list, "Rendered");
+        pManager.AddBooleanParameter("Run", "Run", "Set to true to export the image.", GH_ParamAccess.list, false);
 
         pManager[1].Optional = true;
     }
@@ -52,15 +54,15 @@ public sealed class ExportCrowdImageComponent : IndGhComponent
     protected override void SolveInstance(IGH_DataAccess DA)
     {
         List<object> contentInputs = new();
-        Box frame = Box.Empty;
-        string filePath = string.Empty;
-        int width = 2400;
-        int height = 1600;
-        double margin = 0.05;
-        bool topView = true;
-        bool cleanView = true;
-        string displayMode = "Rendered";
-        bool run = false;
+        List<Box> frameInputs = new();
+        List<string> filePathInputs = new();
+        List<int> widthInputs = new();
+        List<int> heightInputs = new();
+        List<double> marginInputs = new();
+        List<bool> topViewInputs = new();
+        List<bool> cleanViewInputs = new();
+        List<string> displayModeInputs = new();
+        List<bool> runInputs = new();
 
         if (!DA.GetDataList(0, contentInputs) || contentInputs.Count == 0)
         {
@@ -68,21 +70,32 @@ public sealed class ExportCrowdImageComponent : IndGhComponent
             return;
         }
 
-        DA.GetData(1, ref frame);
+        DA.GetDataList(1, frameInputs);
 
-        if (!DA.GetData(2, ref filePath) || string.IsNullOrWhiteSpace(filePath))
+        DA.GetDataList(2, filePathInputs);
+        string filePath = filePathInputs.Count > 0 ? filePathInputs[0] : string.Empty;
+        if (string.IsNullOrWhiteSpace(filePath))
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Target PNG file path is required.");
             return;
         }
 
-        DA.GetData(3, ref width);
-        DA.GetData(4, ref height);
-        DA.GetData(5, ref margin);
-        DA.GetData(6, ref topView);
-        DA.GetData(7, ref cleanView);
-        DA.GetData(8, ref displayMode);
-        DA.GetData(9, ref run);
+        DA.GetDataList(3, widthInputs);
+        DA.GetDataList(4, heightInputs);
+        DA.GetDataList(5, marginInputs);
+        DA.GetDataList(6, topViewInputs);
+        DA.GetDataList(7, cleanViewInputs);
+        DA.GetDataList(8, displayModeInputs);
+        DA.GetDataList(9, runInputs);
+
+        Box frame = frameInputs.Count > 0 ? frameInputs[0] : Box.Empty;
+        int width = widthInputs.Count > 0 ? widthInputs[0] : 2400;
+        int height = heightInputs.Count > 0 ? heightInputs[0] : 1600;
+        double margin = marginInputs.Count > 0 ? marginInputs[0] : 0.05;
+        bool topView = topViewInputs.Count == 0 || topViewInputs[0];
+        bool cleanView = cleanViewInputs.Count == 0 || cleanViewInputs[0];
+        string displayMode = displayModeInputs.Count > 0 ? displayModeInputs[0] : "Rendered";
+        bool run = runInputs.Count > 0 && runInputs[0];
 
         DateTime nowUtc = DateTime.UtcNow;
         if (run && !_pendingCapture && !_captureLatch)

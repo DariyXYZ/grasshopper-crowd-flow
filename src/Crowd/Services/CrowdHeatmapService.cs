@@ -16,13 +16,15 @@ public static class CrowdHeatmapService
     /// <param name="heightScale">Optional Z offset scale for turning a flat heatmap into a relief mesh.</param>
     /// <param name="mode">Heatmap mode: occupancy, density, throughput, speed, or congestion.</param>
     /// <param name="normalizeByFrameCount">Whether occupancy-like values are normalized by frame count.</param>
+    /// <param name="presentationMode">Whether to apply report-friendly smoothing and local peak softening to the visual field.</param>
     /// <returns>Colored mesh heatmap plus scalar metadata for downstream reporting and legend generation.</returns>
     public static CrowdHeatmapResult Build(
         CrowdSimulationResult result,
         string mode,
         int smoothingPasses,
         double heightScale,
-        bool normalizeByFrameCount)
+        bool normalizeByFrameCount,
+        bool presentationMode = false)
     {
         if (result == null)
         {
@@ -40,25 +42,11 @@ public static class CrowdHeatmapService
         for (int frameIndex = 0; frameIndex < result.Frames.Count; frameIndex++)
         {
             CrowdFrame frame = result.Frames[frameIndex];
-            foreach (Point3d position in frame.ActivePositions)
-            {
-                if (!grid.TryGetClosestWalkableCell(position, out int x, out int y))
-                {
-                    continue;
-                }
-
-                occupancy[x, y] += result.Model.TimeStep;
-            }
-
             for (int i = 0; i < frame.ActivePositions.Count && i < frame.ActiveSpeeds.Count; i++)
             {
-                if (!grid.TryGetClosestWalkableCell(frame.ActivePositions[i], out int x, out int y))
-                {
-                    continue;
-                }
-
-                speedSum[x, y] += frame.ActiveSpeeds[i];
-                speedCount[x, y] += 1.0;
+                AddSoftCellContribution(grid, occupancy, frame.ActivePositions[i], result.Model.TimeStep);
+                AddSoftCellContribution(grid, speedSum, frame.ActivePositions[i], frame.ActiveSpeeds[i]);
+                AddSoftCellContribution(grid, speedCount, frame.ActivePositions[i], 1.0);
             }
         }
 
@@ -84,25 +72,26 @@ public static class CrowdHeatmapService
                         from.Y + ((to.Y - from.Y) * t),
                         from.Z + ((to.Z - from.Z) * t));
 
-                    if (!grid.TryGetClosestWalkableCell(sample, out int x, out int y))
+                    if (grid.TryGetClosestWalkableCell(sample, out int x, out int y) && traversedCells.Add((x, y)))
                     {
-                        continue;
-                    }
-
-                    if (traversedCells.Add((x, y)))
-                    {
-                        flow[x, y] += 1.0;
+                        AddSoftCellContribution(grid, flow, sample, 1.0);
                     }
                 }
             }
         }
 
-        string legendTitle = BuildLegendTitle(safeMode, normalizeByFrameCount);
+        string legendTitle = BuildLegendTitle(safeMode, normalizeByFrameCount, presentationMode);
         double[,] values = BuildModeField(safeMode, occupancy, flow, speedSum, speedCount, result, grid, normalizeByFrameCount, simulatedDuration);
 
         for (int pass = 0; pass < Math.Max(0, smoothingPasses); pass++)
         {
             values = Smooth(values, grid);
+        }
+
+        if (presentationMode)
+        {
+            values = ApplyPresentationSmoothing(values, grid, Math.Max(2, Math.Min(5, smoothingPasses + 1)));
+            values = SoftenCornerPeaks(values, grid);
         }
 
         double minimum = GetMinimum(values, grid);
@@ -146,6 +135,32 @@ public static class CrowdHeatmapService
         mesh.Compact();
 
         return new CrowdHeatmapResult(mesh, flatValues, bounds, result.Model.Floor.CellSize, heightScale, minimum, peak, safeMode, legendTitle);
+    }
+
+    private static void AddSoftCellContribution(CrowdGrid grid, double[,] values, Point3d point, double amount)
+    {
+        double continuousX = ((point.X - grid.MinX) / grid.Floor.CellSize) - 0.5;
+        double continuousY = ((point.Y - grid.MinY) / grid.Floor.CellSize) - 0.5;
+
+        int x0 = (int)Math.Floor(continuousX);
+        int y0 = (int)Math.Floor(continuousY);
+        double tx = Math.Max(0.0, Math.Min(1.0, continuousX - x0));
+        double ty = Math.Max(0.0, Math.Min(1.0, continuousY - y0));
+
+        AddWeightedCellValue(grid, values, x0, y0, amount * (1.0 - tx) * (1.0 - ty));
+        AddWeightedCellValue(grid, values, x0 + 1, y0, amount * tx * (1.0 - ty));
+        AddWeightedCellValue(grid, values, x0, y0 + 1, amount * (1.0 - tx) * ty);
+        AddWeightedCellValue(grid, values, x0 + 1, y0 + 1, amount * tx * ty);
+    }
+
+    private static void AddWeightedCellValue(CrowdGrid grid, double[,] values, int x, int y, double amount)
+    {
+        if (amount <= 1e-12 || !grid.IsWalkable(x, y))
+        {
+            return;
+        }
+
+        values[x, y] += amount;
     }
 
     private static double[,] BuildModeField(
@@ -204,9 +219,9 @@ public static class CrowdHeatmapService
         return values;
     }
 
-    private static string BuildLegendTitle(string mode, bool normalizeByFrameCount)
+    private static string BuildLegendTitle(string mode, bool normalizeByFrameCount, bool presentationMode)
     {
-        return mode.ToLowerInvariant() switch
+        string title = mode.ToLowerInvariant() switch
         {
             "speed" => "Speed, m/s",
             "density" => "Density, agents/m2",
@@ -214,6 +229,8 @@ public static class CrowdHeatmapService
             "congestion" => "Congestion, relative",
             _ => normalizeByFrameCount ? "Occupancy, normalized" : "Occupancy, agent-s/cell"
         };
+
+        return presentationMode ? $"{title} (presentation)" : title;
     }
 
     private static double[,] Smooth(double[,] values, CrowdGrid grid)
@@ -252,6 +269,171 @@ public static class CrowdHeatmapService
         }
 
         return smoothed;
+    }
+
+    private static double[,] ApplyPresentationSmoothing(double[,] values, CrowdGrid grid, int passes)
+    {
+        double[,] current = values;
+        for (int pass = 0; pass < passes; pass++)
+        {
+            current = SmoothGaussianLike(current, grid);
+        }
+
+        return current;
+    }
+
+    private static double[,] SmoothGaussianLike(double[,] values, CrowdGrid grid)
+    {
+        double[,] smoothed = new double[grid.Width, grid.Height];
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                double sum = 0.0;
+                double weightSum = 0.0;
+                for (int ox = -2; ox <= 2; ox++)
+                {
+                    for (int oy = -2; oy <= 2; oy++)
+                    {
+                        int nx = x + ox;
+                        int ny = y + oy;
+                        if (!grid.IsWalkable(nx, ny) || !HasLineOfWalkableCells(grid, x, y, nx, ny))
+                        {
+                            continue;
+                        }
+
+                        double distanceSquared = (ox * ox) + (oy * oy);
+                        double weight = Math.Exp(-distanceSquared / 3.0);
+                        sum += values[nx, ny] * weight;
+                        weightSum += weight;
+                    }
+                }
+
+                smoothed[x, y] = weightSum <= 1e-9 ? values[x, y] : sum / weightSum;
+            }
+        }
+
+        return smoothed;
+    }
+
+    private static double[,] SoftenCornerPeaks(double[,] values, CrowdGrid grid)
+    {
+        double[,] softened = new double[grid.Width, grid.Height];
+        for (int x = 0; x < grid.Width; x++)
+        {
+            for (int y = 0; y < grid.Height; y++)
+            {
+                if (!grid.IsWalkable(x, y))
+                {
+                    continue;
+                }
+
+                double neighborSum = 0.0;
+                double neighborWeight = 0.0;
+                for (int ox = -1; ox <= 1; ox++)
+                {
+                    for (int oy = -1; oy <= 1; oy++)
+                    {
+                        if (ox == 0 && oy == 0)
+                        {
+                            continue;
+                        }
+
+                        int nx = x + ox;
+                        int ny = y + oy;
+                        if (!grid.IsWalkable(nx, ny))
+                        {
+                            continue;
+                        }
+
+                        double weight = (ox == 0 || oy == 0) ? 1.0 : 0.55;
+                        neighborSum += values[nx, ny] * weight;
+                        neighborWeight += weight;
+                    }
+                }
+
+                if (neighborWeight <= 1e-9)
+                {
+                    softened[x, y] = values[x, y];
+                    continue;
+                }
+
+                double neighborAverage = neighborSum / neighborWeight;
+                double excess = Math.Max(0.0, values[x, y] - (neighborAverage * 1.45));
+                double cornerFactor = GetCornerProximityFactor(grid, x, y);
+                softened[x, y] = values[x, y] - (excess * cornerFactor * 0.42);
+            }
+        }
+
+        return softened;
+    }
+
+    private static bool HasLineOfWalkableCells(CrowdGrid grid, int x0, int y0, int x1, int y1)
+    {
+        int dx = Math.Abs(x1 - x0);
+        int dy = Math.Abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+        int x = x0;
+        int y = y0;
+
+        while (true)
+        {
+            if (!grid.IsWalkable(x, y))
+            {
+                return false;
+            }
+
+            if (x == x1 && y == y1)
+            {
+                return true;
+            }
+
+            int e2 = err * 2;
+            if (e2 > -dy)
+            {
+                err -= dy;
+                x += sx;
+            }
+
+            if (e2 < dx)
+            {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+
+    private static double GetCornerProximityFactor(CrowdGrid grid, int x, int y)
+    {
+        int blockedCardinal = 0;
+        if (!grid.IsWalkable(x - 1, y))
+        {
+            blockedCardinal++;
+        }
+
+        if (!grid.IsWalkable(x + 1, y))
+        {
+            blockedCardinal++;
+        }
+
+        if (!grid.IsWalkable(x, y - 1))
+        {
+            blockedCardinal++;
+        }
+
+        if (!grid.IsWalkable(x, y + 1))
+        {
+            blockedCardinal++;
+        }
+
+        return Math.Max(0.0, Math.Min(1.0, blockedCardinal / 2.0));
     }
 
     private static double GetMinimum(double[,] values, CrowdGrid grid)

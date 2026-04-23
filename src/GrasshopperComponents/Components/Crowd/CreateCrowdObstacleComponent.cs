@@ -14,6 +14,8 @@ public sealed class CreateCrowdObstacleComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("97748331-7f0b-41dd-a25f-0b3d68e7b00c");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdObstacle;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)

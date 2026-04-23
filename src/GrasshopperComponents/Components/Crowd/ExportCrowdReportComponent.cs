@@ -14,22 +14,24 @@ public sealed class ExportCrowdReportComponent : IndGhComponent
 
     public override Guid ComponentGuid => new("516b4380-1c3a-4a88-9268-1934fb9f1bd6");
 
+    protected override bool IsDeveloperOnly => false;
+
     protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdExportReport;
 
     protected override GH_Exposure DefaultExposure => GH_Exposure.secondary;
 
     protected override void RegisterInputParams(GH_InputParamManager pManager)
     {
-        pManager.AddGenericParameter("Result", "R", "CrowdSimulationResult from Run Crowd Simulation.", GH_ParamAccess.item);
-        pManager.AddGenericParameter("Heatmap", "H", "Optional CrowdHeatmapResult for report legend labels and value range.", GH_ParamAccess.item);
-        pManager.AddTextParameter("Image Path", "Img", "Optional PNG path exported by Export Crowd Image.", GH_ParamAccess.item, string.Empty);
-        pManager.AddTextParameter("Output Path", "Out", "Target report path. You can pass a base path, .docx, or .pdf path.", GH_ParamAccess.item);
-        pManager.AddTextParameter("Template Path", "Tpl", "DOCX template path for the report layout.", GH_ParamAccess.item);
-        pManager.AddTextParameter("Project Name", "Project", "Report project title.", GH_ParamAccess.item, string.Empty);
-        pManager.AddTextParameter("Site Name", "Site", "Project site or area name.", GH_ParamAccess.item, string.Empty);
-        pManager.AddTextParameter("Scenario Name", "Scenario", "Scenario or option name shown in the report.", GH_ParamAccess.item, "Base scenario");
-        pManager.AddTextParameter("Notes", "Notes", "Optional architect-facing note block.", GH_ParamAccess.item, string.Empty);
-        pManager.AddBooleanParameter("Run", "Run", "Set to true to export the report.", GH_ParamAccess.item, false);
+        pManager.AddGenericParameter("Result", "R", "CrowdSimulationResult from Run Crowd Simulation.", GH_ParamAccess.list);
+        pManager.AddGenericParameter("Heatmap", "H", "Optional CrowdHeatmapResult for report legend labels and value range.", GH_ParamAccess.list);
+        pManager.AddTextParameter("Image Path", "Img", "Optional PNG path exported by Export Crowd Image.", GH_ParamAccess.list, string.Empty);
+        pManager.AddTextParameter("Output Path", "Out", "Target report path. You can pass a base path, .docx, or .pdf path.", GH_ParamAccess.list);
+        pManager.AddTextParameter("Template Path", "Tpl", "DOCX template path for the report layout.", GH_ParamAccess.list);
+        pManager.AddTextParameter("Project Name", "Project", "Report project title.", GH_ParamAccess.list, string.Empty);
+        pManager.AddTextParameter("Site Name", "Site", "Project site or area name.", GH_ParamAccess.list, string.Empty);
+        pManager.AddTextParameter("Scenario Name", "Scenario", "Scenario or option name shown in the report.", GH_ParamAccess.list, "Base scenario");
+        pManager.AddTextParameter("Notes", "Notes", "Optional architect-facing note block.", GH_ParamAccess.list, string.Empty);
+        pManager.AddBooleanParameter("Run", "Run", "Set to true to export the report.", GH_ParamAccess.list, false);
 
         pManager[1].Optional = true;
         pManager[2].Optional = true;
@@ -45,43 +47,53 @@ public sealed class ExportCrowdReportComponent : IndGhComponent
 
     protected override void SolveInstance(IGH_DataAccess DA)
     {
-        object? resultInput = null;
-        object? heatmapInput = null;
-        string imagePath = string.Empty;
-        string outputPath = string.Empty;
-        string templatePath = string.Empty;
-        string projectName = string.Empty;
-        string siteName = string.Empty;
-        string scenarioName = "Base scenario";
-        string notes = string.Empty;
-        bool run = false;
+        List<object> resultInputs = new();
+        List<object> heatmapInputs = new();
+        List<string> imagePathInputs = new();
+        List<string> outputPathInputs = new();
+        List<string> templatePathInputs = new();
+        List<string> projectNameInputs = new();
+        List<string> siteNameInputs = new();
+        List<string> scenarioNameInputs = new();
+        List<string> notesInputs = new();
+        List<bool> runInputs = new();
 
-        if (!DA.GetData(0, ref resultInput) || resultInput == null)
+        if (!DA.GetDataList(0, resultInputs) || resultInputs.Count == 0)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Crowd simulation result is required.");
             return;
         }
 
-        DA.GetData(1, ref heatmapInput);
-        DA.GetData(2, ref imagePath);
+        DA.GetDataList(1, heatmapInputs);
+        DA.GetDataList(2, imagePathInputs);
+        DA.GetDataList(3, outputPathInputs);
+        DA.GetDataList(4, templatePathInputs);
+        DA.GetDataList(5, projectNameInputs);
+        DA.GetDataList(6, siteNameInputs);
+        DA.GetDataList(7, scenarioNameInputs);
+        DA.GetDataList(8, notesInputs);
+        DA.GetDataList(9, runInputs);
 
-        if (!DA.GetData(3, ref outputPath) || string.IsNullOrWhiteSpace(outputPath))
+        string imagePath = imagePathInputs.Count > 0 ? imagePathInputs[0] : string.Empty;
+        string outputPath = outputPathInputs.Count > 0 ? outputPathInputs[0] : string.Empty;
+        string templatePath = templatePathInputs.Count > 0 ? templatePathInputs[0] : string.Empty;
+        string projectName = projectNameInputs.Count > 0 ? projectNameInputs[0] : string.Empty;
+        string siteName = siteNameInputs.Count > 0 ? siteNameInputs[0] : string.Empty;
+        string scenarioName = scenarioNameInputs.Count > 0 ? scenarioNameInputs[0] : "Base scenario";
+        string notes = notesInputs.Count > 0 ? notesInputs[0] : string.Empty;
+        bool run = runInputs.Count > 0 && runInputs[0];
+
+        if (string.IsNullOrWhiteSpace(outputPath))
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Target report path is required.");
             return;
         }
 
-        if (!DA.GetData(4, ref templatePath) || string.IsNullOrWhiteSpace(templatePath))
+        if (string.IsNullOrWhiteSpace(templatePath))
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "DOCX template path is required.");
             return;
         }
-
-        DA.GetData(5, ref projectName);
-        DA.GetData(6, ref siteName);
-        DA.GetData(7, ref scenarioName);
-        DA.GetData(8, ref notes);
-        DA.GetData(9, ref run);
 
         if (!run)
         {
@@ -90,16 +102,16 @@ public sealed class ExportCrowdReportComponent : IndGhComponent
             return;
         }
 
-        if (!GhObjectExtraction.TryExtract(resultInput, out CrowdSimulationResult? simulation) || simulation == null)
+        if (!GhObjectExtraction.TryExtract(resultInputs[0], out CrowdSimulationResult? simulation) || simulation == null)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Unable to extract CrowdSimulationResult from input.");
             return;
         }
 
         CrowdHeatmapResult? heatmap = null;
-        if (heatmapInput != null)
+        if (heatmapInputs.Count > 0)
         {
-            GhObjectExtraction.TryExtract(heatmapInput, out heatmap);
+            GhObjectExtraction.TryExtract(heatmapInputs[0], out heatmap);
         }
 
         try
