@@ -2,6 +2,7 @@ using Crowd.Models;
 using Crowd.Utilities;
 using Rhino.Geometry;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Crowd.Services;
 
@@ -120,7 +121,7 @@ public static class CrowdSimulationService
         double gridBuildMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
 
         stageStopwatch.Restart();
-        List<double[,]> exitFields = model.Exits.Select(exit => CrowdPathFieldBuilder.Build(grid, exit)).ToList();
+        List<double[,]> exitFields = BuildExitFields(grid, model.Exits);
         double pathFieldBuildMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
 
         List<CrowdAgentState> agents = new();
@@ -183,16 +184,7 @@ public static class CrowdSimulationService
         double simulationLoopMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
 
         stageStopwatch.Restart();
-        List<CrowdAgentPath> paths = agents
-            .OrderBy(agent => agent.Id)
-            .Select(agent => new CrowdAgentPath(
-                agent.Id,
-                agent.ExitIndex,
-                new Polyline(trajectories.TryGetValue(agent.Id, out List<Point3d>? points) ? points : Enumerable.Empty<Point3d>()),
-                agent.IsFinished,
-                agent.SpawnTime,
-                agent.FinishTime))
-            .ToList();
+        List<CrowdAgentPath> paths = BuildAgentPaths(agents, trajectories);
 
         CrowdSimulationCoreMetrics coreMetrics = CrowdSimulationMetricsService.BuildCoreMetrics(model, paths, time);
         double resultBuildMilliseconds = stageStopwatch.Elapsed.TotalMilliseconds;
@@ -314,7 +306,41 @@ public static class CrowdSimulationService
         Random random)
     {
         List<CrowdAgentState> activeAgents = agents.Where(agent => !agent.IsFinished).ToList();
+        if (activeAgents.Count == 0)
+        {
+            return;
+        }
+
         AgentSpatialIndex spatialIndex = new(grid, activeAgents);
+        List<PendingAgentUpdate> pendingUpdates = PreparePendingAgentUpdates(
+            model,
+            grid,
+            exitFields,
+            activeAgents,
+            spatialIndex,
+            trajectories,
+            time,
+            random);
+        if (pendingUpdates.Count == 0)
+        {
+            return;
+        }
+
+        AgentMotionPlan[] motionPlans = BuildAgentMotionPlans(model, grid, activeAgents, spatialIndex, pendingUpdates, time, timeStep);
+        ApplyAgentMotionPlans(grid, activeAgents, spatialIndex, trajectories, motionPlans, time, timeStep);
+    }
+
+    private static List<PendingAgentUpdate> PreparePendingAgentUpdates(
+        CrowdModel model,
+        CrowdGrid grid,
+        IReadOnlyList<double[,]> exitFields,
+        IReadOnlyList<CrowdAgentState> activeAgents,
+        AgentSpatialIndex spatialIndex,
+        Dictionary<int, List<Point3d>> trajectories,
+        double time,
+        Random random)
+    {
+        List<PendingAgentUpdate> pendingUpdates = new(activeAgents.Count);
         foreach (CrowdAgentState agent in activeAgents)
         {
             MaybeReevaluateExit(agent, model, grid, exitFields, activeAgents, spatialIndex, time, random);
@@ -325,39 +351,120 @@ public static class CrowdSimulationService
                 continue;
             }
 
-            Vector3d desiredVelocity = CalculateDesiredVelocity(agent, model, grid, targetExit, exitFields[agent.ExitIndex], activeAgents, spatialIndex, time);
-            desiredVelocity = ApplyExitApproachDamping(agent, targetExit, desiredVelocity);
-            agent.DesiredVelocity = BlendVelocity(agent.DesiredVelocity, desiredVelocity, agent.MaxSpeed, DesiredVelocityBlendFactor);
-            Vector3d motionVelocity = ComputeMotionVelocity(agent, grid, exitFields[agent.ExitIndex], agent.DesiredVelocity, timeStep);
+            pendingUpdates.Add(new PendingAgentUpdate(agent, targetExit, exitFields[agent.ExitIndex]));
+        }
 
-            Point3d proposed = agent.Position + (motionVelocity * timeStep);
+        return pendingUpdates;
+    }
+
+    private static AgentMotionPlan[] BuildAgentMotionPlans(
+        CrowdModel model,
+        CrowdGrid grid,
+        IReadOnlyList<CrowdAgentState> activeAgents,
+        AgentSpatialIndex spatialIndex,
+        IReadOnlyList<PendingAgentUpdate> pendingUpdates,
+        double time,
+        double timeStep)
+    {
+        AgentMotionPlan[] motionPlans = new AgentMotionPlan[pendingUpdates.Count];
+        Parallel.For(0, pendingUpdates.Count, updateIndex =>
+        {
+            PendingAgentUpdate pendingUpdate = pendingUpdates[updateIndex];
+            CrowdAgentState agent = pendingUpdate.Agent;
+            Vector3d desiredVelocity = CalculateDesiredVelocity(
+                agent,
+                model,
+                grid,
+                pendingUpdate.TargetExit,
+                pendingUpdate.Field,
+                activeAgents,
+                spatialIndex,
+                time);
+            desiredVelocity = ApplyExitApproachDamping(agent, pendingUpdate.TargetExit, desiredVelocity);
+            Vector3d blendedDesiredVelocity = BlendVelocity(agent.DesiredVelocity, desiredVelocity, agent.MaxSpeed, DesiredVelocityBlendFactor);
+            Vector3d motionVelocity = ComputeMotionVelocity(agent, grid, pendingUpdate.Field, blendedDesiredVelocity, timeStep);
+            motionPlans[updateIndex] = new AgentMotionPlan(agent, pendingUpdate.TargetExit, pendingUpdate.Field, blendedDesiredVelocity, motionVelocity);
+        });
+
+        return motionPlans;
+    }
+
+    private static void ApplyAgentMotionPlans(
+        CrowdGrid grid,
+        IReadOnlyList<CrowdAgentState> activeAgents,
+        AgentSpatialIndex spatialIndex,
+        Dictionary<int, List<Point3d>> trajectories,
+        IReadOnlyList<AgentMotionPlan> motionPlans,
+        double time,
+        double timeStep)
+    {
+        foreach (AgentMotionPlan motionPlan in motionPlans)
+        {
+            CrowdAgentState agent = motionPlan.Agent;
+            agent.DesiredVelocity = motionPlan.DesiredVelocity;
+
+            Point3d proposed = agent.Position + (motionPlan.MotionVelocity * timeStep);
             if (!grid.IsWalkable(proposed) || IsOccupiedByOthers(agent, proposed, activeAgents, spatialIndex, agent.Radius * 1.5))
             {
-                proposed = agent.Position + (motionVelocity * (timeStep * StalledMoveFactor));
+                proposed = agent.Position + (motionPlan.MotionVelocity * (timeStep * StalledMoveFactor));
                 if (!grid.IsWalkable(proposed) || IsOccupiedByOthers(agent, proposed, activeAgents, spatialIndex, agent.Radius * 1.35))
                 {
                     proposed = agent.Position;
                 }
             }
 
-            proposed = StabilizeProposedMove(agent, timeStep, grid, exitFields[agent.ExitIndex], activeAgents, spatialIndex, proposed);
+            proposed = StabilizeProposedMove(agent, timeStep, grid, motionPlan.Field, activeAgents, spatialIndex, proposed);
             if (agent.StuckDuration >= StuckActivationTime && proposed.DistanceTo(agent.Position) <= 1e-6)
             {
-                proposed = CreateDeadlockReleaseMove(agent, timeStep, grid, exitFields[agent.ExitIndex], activeAgents, spatialIndex, motionVelocity);
+                proposed = CreateDeadlockReleaseMove(agent, timeStep, grid, motionPlan.Field, activeAgents, spatialIndex, motionPlan.MotionVelocity);
             }
 
             agent.Velocity = (proposed - agent.Position) / Math.Max(timeStep, 1e-6);
             agent.Position = proposed;
-            UpdateAgentProgressState(agent, grid, exitFields[agent.ExitIndex], timeStep);
+            UpdateAgentProgressState(agent, grid, motionPlan.Field, timeStep);
 
             AppendTrajectoryPoint(trajectories, agent.Id, proposed);
 
-            if (TryAbsorbAtExit(agent, targetExit, time + timeStep))
+            if (TryAbsorbAtExit(agent, motionPlan.TargetExit, time + timeStep))
             {
                 AppendTrajectoryPoint(trajectories, agent.Id, agent.Position);
-                continue;
             }
         }
+    }
+
+    private static List<double[,]> BuildExitFields(CrowdGrid grid, IReadOnlyList<CrowdExit> exits)
+    {
+        double[][,] exitFields = new double[exits.Count][,];
+        Parallel.For(0, exits.Count, exitIndex =>
+        {
+            exitFields[exitIndex] = CrowdPathFieldBuilder.Build(grid, exits[exitIndex]);
+        });
+
+        return exitFields.ToList();
+    }
+
+    private static List<CrowdAgentPath> BuildAgentPaths(
+        IReadOnlyList<CrowdAgentState> agents,
+        IReadOnlyDictionary<int, List<Point3d>> trajectories)
+    {
+        CrowdAgentState[] orderedAgents = agents.OrderBy(agent => agent.Id).ToArray();
+        CrowdAgentPath[] paths = new CrowdAgentPath[orderedAgents.Length];
+        Parallel.For(0, orderedAgents.Length, agentIndex =>
+        {
+            CrowdAgentState agent = orderedAgents[agentIndex];
+            IEnumerable<Point3d> points = trajectories.TryGetValue(agent.Id, out List<Point3d>? pathPoints)
+                ? pathPoints
+                : Enumerable.Empty<Point3d>();
+            paths[agentIndex] = new CrowdAgentPath(
+                agent.Id,
+                agent.ExitIndex,
+                new Polyline(points),
+                agent.IsFinished,
+                agent.SpawnTime,
+                agent.FinishTime);
+        });
+
+        return paths.ToList();
     }
 
     private static Vector3d CalculateDesiredVelocity(
@@ -3121,5 +3228,43 @@ public static class CrowdSimulationService
                 }
             }
         }
+    }
+
+    private sealed class PendingAgentUpdate
+    {
+        public PendingAgentUpdate(CrowdAgentState agent, CrowdExit targetExit, double[,] field)
+        {
+            Agent = agent;
+            TargetExit = targetExit;
+            Field = field;
+        }
+
+        public CrowdAgentState Agent { get; }
+
+        public CrowdExit TargetExit { get; }
+
+        public double[,] Field { get; }
+    }
+
+    private sealed class AgentMotionPlan
+    {
+        public AgentMotionPlan(CrowdAgentState agent, CrowdExit targetExit, double[,] field, Vector3d desiredVelocity, Vector3d motionVelocity)
+        {
+            Agent = agent;
+            TargetExit = targetExit;
+            Field = field;
+            DesiredVelocity = desiredVelocity;
+            MotionVelocity = motionVelocity;
+        }
+
+        public CrowdAgentState Agent { get; }
+
+        public CrowdExit TargetExit { get; }
+
+        public double[,] Field { get; }
+
+        public Vector3d DesiredVelocity { get; }
+
+        public Vector3d MotionVelocity { get; }
     }
 }
