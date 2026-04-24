@@ -27,11 +27,73 @@ if ($unknownFrameworks.Count -gt 0) {
     throw "Unsupported framework(s): $($unknownFrameworks -join ', '). Allowed values: $($availableFrameworks -join ', ')."
 }
 
+if ($DeployToGrasshopper) {
+    $runningRhino = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'Rhino|grasshopper' }
+    if ($runningRhino) {
+        $processSummary = $runningRhino | ForEach-Object { "$($_.ProcessName)#$($_.Id)" }
+        throw "Deploy requested while Rhino/Grasshopper is running: $($processSummary -join ', '). Close Rhino before deploy builds."
+    }
+}
+
 $builds = foreach ($framework in $selectedFrameworks) {
     @{
         Project = 'src\GrasshopperComponents\GrasshopperComponents.csproj'
         TargetFramework = $framework
     }
+}
+
+function Get-CriticalDeployFiles {
+    param(
+        [string]$Root,
+        [string]$TargetFramework
+    )
+
+    $sourceDir = Join-Path $Root "artifacts\\bin\\GrasshopperComponents\\$Configuration\\$TargetFramework"
+    $deployDir = Join-Path $env:APPDATA "Grasshopper\\Libraries\\INDTools\\$TargetFramework"
+
+    return @(
+        @{
+            Name = 'INDGrasshopperComponents.gha'
+            Source = Join-Path $sourceDir 'INDGrasshopperComponents.gha'
+            Destination = Join-Path $deployDir 'INDGrasshopperComponents.gha'
+        },
+        @{
+            Name = 'INDGrasshopperComponents.dll'
+            Source = Join-Path $sourceDir 'INDGrasshopperComponents.dll'
+            Destination = Join-Path $deployDir 'INDGrasshopperComponents.dll'
+        },
+        @{
+            Name = 'Crowd.dll'
+            Source = Join-Path $sourceDir 'Crowd.dll'
+            Destination = Join-Path $deployDir 'Crowd.dll'
+        }
+    )
+}
+
+function Assert-DeployMatchesBuild {
+    param(
+        [string]$Root,
+        [string]$TargetFramework
+    )
+
+    $criticalFiles = Get-CriticalDeployFiles -Root $Root -TargetFramework $TargetFramework
+    foreach ($file in $criticalFiles) {
+        if (-not (Test-Path $file.Source)) {
+            throw "Built artifact missing: $($file.Source)"
+        }
+
+        if (-not (Test-Path $file.Destination)) {
+            throw "Deployed artifact missing: $($file.Destination)"
+        }
+
+        $sourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.Source).Hash
+        $destinationHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.Destination).Hash
+        if ($sourceHash -ne $destinationHash) {
+            throw "Deploy verification failed for $($file.Name). Built file and deployed file hashes differ."
+        }
+    }
+
+    Write-Host "Deploy verification passed for $TargetFramework." -ForegroundColor Green
 }
 
 Push-Location $root
@@ -64,6 +126,10 @@ try {
 
         if ($LASTEXITCODE -ne 0) {
             throw "Build failed for $($build.Project) [$($build.TargetFramework)]."
+        }
+
+        if ($DeployToGrasshopper) {
+            Assert-DeployMatchesBuild -Root $root -TargetFramework $build.TargetFramework
         }
     }
 }

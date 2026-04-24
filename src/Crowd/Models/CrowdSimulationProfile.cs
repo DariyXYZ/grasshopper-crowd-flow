@@ -1,8 +1,10 @@
+using System.Reflection;
+
 namespace Crowd.Models;
 
 public sealed class CrowdSimulationProfile
 {
-    private const string EngineBuild = "2026-04-23.6";
+    private static readonly string EngineBuild = BuildEngineBuildStamp();
 
     public CrowdSimulationProfile(
         double gridBuildMilliseconds,
@@ -90,5 +92,16 @@ public sealed class CrowdSimulationProfile
             $"Last completion age: {LastCompletionAge:0.###} s",
             $"Active tail: {ActiveTailSummary}",
             $"Stop reason: {TerminationReason}");
+    }
+
+    private static string BuildEngineBuildStamp()
+    {
+        Assembly assembly = typeof(CrowdSimulationProfile).Assembly;
+        string location = assembly.Location;
+        string writeTime = File.Exists(location)
+            ? File.GetLastWriteTimeUtc(location).ToString("yyyy-MM-dd HH:mm:ss 'UTC'")
+            : "unknown build time";
+        string moduleId = assembly.ManifestModule.ModuleVersionId.ToString("N").Substring(0, 8);
+        return $"{writeTime} [{moduleId}]";
     }
 }
