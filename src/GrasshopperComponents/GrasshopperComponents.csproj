@@ -49,10 +49,11 @@
 
     <ItemGroup Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')">
       <_PluginDeployFiles Include="$(_GhaArtifactPath)" />
-      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).dll" Condition="Exists('$(TargetDir)$(AssemblyName).dll')" />
-      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).pdb" Condition="Exists('$(TargetDir)$(AssemblyName).pdb')" />
-      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).deps.json" Condition="Exists('$(TargetDir)$(AssemblyName).deps.json')" />
-      <_PluginDeployFiles Include="$(TargetDir)$(AssemblyName).runtimeconfig.json" Condition="Exists('$(TargetDir)$(AssemblyName).runtimeconfig.json')" />
+      <_PluginDeployFiles Include="$(TargetDir)*.dll" />
+      <_PluginDeployFiles Include="$(TargetDir)*.pdb" />
+      <_PluginDeployFiles Include="$(TargetDir)*.xml" />
+      <_PluginDeployFiles Include="$(TargetDir)*.deps.json" />
+      <_PluginDeployFiles Include="$(TargetDir)*.runtimeconfig.json" />
     </ItemGroup>
 
     <Message Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')"
