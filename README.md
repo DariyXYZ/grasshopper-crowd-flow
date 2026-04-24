@@ -103,6 +103,10 @@ This public repository currently focuses on crowd simulation only. Broader inter
 - A local developer flag file can also be placed at `%AppData%\\GhCrowdFlow\\dev.flag`
 - The release-oriented Grasshopper deploy path is `net48`
 - `build.ps1` keeps deploy explicit by default so local verification and release deploy are separate steps
+- deploy builds now fail early if Rhino or Grasshopper is still running
+- `build.ps1 -DeployToGrasshopper` hash-verifies deployed runtime files so a partial copy cannot silently pass as success
+- the `Prof` output reports a runtime-resolved engine build marker from the loaded `Crowd.dll` instead of a hardcoded label
+- safe parallelization is currently limited to exit-field generation, read-heavy per-agent motion-plan precompute, and final path materialization; movement commit remains sequential to preserve occupancy and collision semantics
 
 ## Included Public Test Materials
 
