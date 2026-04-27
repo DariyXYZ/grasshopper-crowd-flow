@@ -25,7 +25,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
         pManager.AddIntegerParameter("Smoothing", "S", "Number of smoothing passes on the heat field.", GH_ParamAccess.list, 2);
         pManager.AddNumberParameter("Height Scale", "H", "Optional height exaggeration for the heat mesh. Use 0 for a flat map.", GH_ParamAccess.list, 0.0);
         pManager.AddBooleanParameter("Normalize", "N", "Normalize values by frame count for easier scenario comparison.", GH_ParamAccess.list, true);
-        pManager.AddBooleanParameter("Presentation", "P", "Apply report-friendly visual smoothing and corner peak softening.", GH_ParamAccess.list, false);
+        pManager.AddBooleanParameter("Presentation", "P", "Apply report-friendly visual smoothing and corner peak softening.", GH_ParamAccess.list, true);
     }
 
     protected override void RegisterOutputParams(GH_OutputParamManager pManager)
@@ -73,7 +73,7 @@ public sealed class CreateCrowdHeatmapComponent : IndGhComponent
                 smoothingInputs.Count > 0 ? smoothingInputs[0] : 2,
                 heightInputs.Count > 0 ? heightInputs[0] : 0.0,
                 normalizeInputs.Count > 0 ? normalizeInputs[0] : true,
-                presentationInputs.Count > 0 && presentationInputs[0]);
+                presentationInputs.Count > 0 ? presentationInputs[0] : true);
 
             DA.SetData(0, heatmap);
             DA.SetData(1, heatmap.Mesh);
