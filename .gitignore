@@ -3,8 +3,10 @@
 bin/
 obj/
 artifacts/
-dist/
 dist-yak/
+dist/yak/crowdflow/net*/
+dist/yak/crowdflow/misc/
+dist/yak/crowdflow/icon.png
 *.user
 *.rsuser
 *.suo
