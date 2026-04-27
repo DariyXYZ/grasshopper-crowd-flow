@@ -49,18 +49,18 @@ function Get-CriticalDeployFiles {
     )
 
     $sourceDir = Join-Path $Root "artifacts\\bin\\GrasshopperComponents\\$Configuration\\$TargetFramework"
-    $deployDir = Join-Path $env:APPDATA "Grasshopper\\Libraries\\INDTools\\$TargetFramework"
+    $deployDir = Join-Path $env:APPDATA "Grasshopper\\Libraries\\CrowdFlow\\$TargetFramework"
 
     return @(
         @{
-            Name = 'INDGrasshopperComponents.gha'
-            Source = Join-Path $sourceDir 'INDGrasshopperComponents.gha'
-            Destination = Join-Path $deployDir 'INDGrasshopperComponents.gha'
+            Name = 'CrowdFlow.gha'
+            Source = Join-Path $sourceDir 'CrowdFlow.gha'
+            Destination = Join-Path $deployDir 'CrowdFlow.gha'
         },
         @{
-            Name = 'INDGrasshopperComponents.dll'
-            Source = Join-Path $sourceDir 'INDGrasshopperComponents.dll'
-            Destination = Join-Path $deployDir 'INDGrasshopperComponents.dll'
+            Name = 'CrowdFlow.dll'
+            Source = Join-Path $sourceDir 'CrowdFlow.dll'
+            Destination = Join-Path $deployDir 'CrowdFlow.dll'
         },
         @{
             Name = 'Crowd.dll'

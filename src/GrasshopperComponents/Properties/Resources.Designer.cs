@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace GrasshopperComponents.Properties;
 
 [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Manual", "1.0.0.0")]

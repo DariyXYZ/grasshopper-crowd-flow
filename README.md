@@ -4,7 +4,7 @@
 
 Grasshopper plugin for crowd movement simulation and architectural heatmap analysis in Rhino 8.
 
-`GhCrowdFlow` is a focused public extraction of the crowd-simulation work from a larger internal toolset. It is designed for early-stage architectural studies where you need:
+`GhCrowdFlow` builds a standalone Grasshopper plugin named `Crowd Flow`. Components appear under the `INDTools` tab in the `Crowd` section. It is designed for early-stage architectural studies where you need:
 
 - believable pedestrian trajectories on a 2D floor
 - obstacle and wall avoidance
@@ -104,6 +104,7 @@ This public repository currently focuses on crowd simulation only. Broader inter
 - The release-oriented Grasshopper deploy path is `net48`
 - `build.ps1` keeps deploy explicit by default so local verification and release deploy are separate steps
 - deploy builds now fail early if Rhino or Grasshopper is still running
+- `build.ps1 -DeployToGrasshopper` installs to `%APPDATA%\Grasshopper\Libraries\CrowdFlow\net48`
 - `build.ps1 -DeployToGrasshopper` hash-verifies deployed runtime files so a partial copy cannot silently pass as success
 - the `Prof` output reports a runtime-resolved engine build marker from the loaded `Crowd.dll` instead of a hardcoded label
 - safe parallelization is currently limited to exit-field generation, read-heavy per-agent motion-plan precompute, and final path materialization; movement commit remains sequential to preserve occupancy and collision semantics

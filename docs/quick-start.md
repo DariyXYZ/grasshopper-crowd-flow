@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide is for a first-time public user who wants to build `GhCrowdFlow`, deploy it into Grasshopper, and run the included demo files.
+This guide is for a first-time public user who wants to build `GhCrowdFlow`, deploy the standalone `Crowd Flow` plugin into Grasshopper, and run the included demo files.
 
 ## Requirements
 
@@ -34,7 +34,11 @@ Close Rhino before deploy so `.dll` and `.gha` files are not locked.
 powershell -ExecutionPolicy Bypass -File .\build.ps1 -DeployToGrasshopper
 ```
 
-The deploy flow targets the `net48` build used by the local Grasshopper plugin path.
+The deploy flow targets the `net48` build used by the local Grasshopper plugin path:
+
+- `%APPDATA%\Grasshopper\Libraries\CrowdFlow\net48`
+
+In Grasshopper, the components appear under the `INDTools` tab in the `Crowd` section.
 
 ## 3. Open The Demo Files
 

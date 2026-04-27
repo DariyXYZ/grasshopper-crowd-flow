@@ -18,7 +18,7 @@
 		<BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
 		<DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
 		<GrasshopperLibrariesRoot Condition="'$(GrasshopperLibrariesRoot)' == '' and '$(APPDATA)' != ''">$(APPDATA)\Grasshopper\Libraries</GrasshopperLibrariesRoot>
-		<IndToolsDeployRoot Condition="'$(IndToolsDeployRoot)' == '' and '$(GrasshopperLibrariesRoot)' != ''">$(GrasshopperLibrariesRoot)\INDTools</IndToolsDeployRoot>
+		<CrowdFlowDeployRoot Condition="'$(CrowdFlowDeployRoot)' == '' and '$(GrasshopperLibrariesRoot)' != ''">$(GrasshopperLibrariesRoot)\CrowdFlow</CrowdFlowDeployRoot>
 		<DeployToGrasshopper Condition="'$(DeployToGrasshopper)' == ''">true</DeployToGrasshopper>
 	</PropertyGroup>
 </Project>

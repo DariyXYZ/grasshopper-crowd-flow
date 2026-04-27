@@ -2,10 +2,10 @@
   <PropertyGroup>
     <TargetFrameworks>net48;net7.0;net8.0</TargetFrameworks>
     <OutputType>Library</OutputType>
-    <AssemblyName>INDGrasshopperComponents</AssemblyName>
-    <Title>INDTools</Title>
-    <Company>INDStudio</Company>
-    <Authors>INDStudio</Authors>
+    <AssemblyName>CrowdFlow</AssemblyName>
+    <Title>Crowd Flow</Title>
+    <Company>DariyXYZ</Company>
+    <Authors>DariyXYZ</Authors>
     <Description>Grasshopper crowd simulation plugin with trajectory output and heatmap mesh generation for Rhino 8.</Description>
     <Version>0.1.0</Version>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
@@ -39,15 +39,18 @@
   <Target Name="CreateGhaArtifact" AfterTargets="Build">
     <PropertyGroup>
       <_PluginAssemblyPath>$(TargetDir)$(AssemblyName).dll</_PluginAssemblyPath>
-      <_GhaArtifactPath>$(TargetDir)INDGrasshopperComponents.gha</_GhaArtifactPath>
-      <_PluginDeployDir>$(IndToolsDeployRoot)\$(TargetFramework)</_PluginDeployDir>
+      <_GhaArtifactPath>$(TargetDir)$(AssemblyName).gha</_GhaArtifactPath>
+      <_PluginDeployDir>$(CrowdFlowDeployRoot)\$(TargetFramework)</_PluginDeployDir>
     </PropertyGroup>
 
     <Copy SourceFiles="$(_PluginAssemblyPath)"
           DestinationFiles="$(_GhaArtifactPath)"
           Condition="Exists('$(_PluginAssemblyPath)')" />
 
-    <ItemGroup Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')">
+    <MakeDir Directories="$(_PluginDeployDir)"
+             Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(CrowdFlowDeployRoot)' != ''" />
+
+    <ItemGroup Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(CrowdFlowDeployRoot)' != ''">
       <_PluginDeployFiles Include="$(_GhaArtifactPath)" />
       <_PluginDeployFiles Include="$(TargetDir)*.dll" />
       <_PluginDeployFiles Include="$(TargetDir)*.pdb" />
@@ -56,7 +59,7 @@
       <_PluginDeployFiles Include="$(TargetDir)*.runtimeconfig.json" />
     </ItemGroup>
 
-    <Message Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')"
+    <Message Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(CrowdFlowDeployRoot)' != ''"
              Importance="high"
              Text="Deploying Grasshopper plugin to $(_PluginDeployDir)" />
 
@@ -65,6 +68,6 @@
           SkipUnchangedFiles="false"
           Retries="3"
           RetryDelayMilliseconds="250"
-          Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(IndToolsDeployRoot)' != '' and Exists('$(_PluginDeployDir)')" />
+          Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(CrowdFlowDeployRoot)' != ''" />
   </Target>
 </Project>

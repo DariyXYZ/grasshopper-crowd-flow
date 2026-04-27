@@ -5,7 +5,7 @@ namespace GrasshopperComponents;
 
 public sealed class GhCrowdFlowInfo : GH_AssemblyInfo
 {
-    public override string Name => "INDTools";
+    public override string Name => "Crowd Flow";
 
     public override string Description => "Grasshopper plugin for crowd movement simulation and architectural heatmap analysis in Rhino 8.";
 

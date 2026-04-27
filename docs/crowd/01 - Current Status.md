@@ -59,3 +59,17 @@ tags:
 - [[06 - Errors and Debugging]]
 - [[08 - Open Questions and Next Steps]]
 
+## 2026-04-27 canonical repo and package staging cleanup
+
+- Restored the practical source-of-truth rule:
+  - active GitHub-bound local repo: `C:\VS Code\GhCrowdFlow-release`
+  - offline package staging: `X:\CompDesign_Projects\Library\crowd_flow`
+  - `INDToolsUpdate` is reference/context only for this standalone packaging pass
+- Standalone plugin identity is now implemented in the canonical repo:
+  - `CrowdFlow.dll`
+  - `CrowdFlow.gha`
+  - plugin metadata name `Crowd Flow`
+  - deploy path `%APPDATA%\Grasshopper\Libraries\CrowdFlow\net48`
+- Components still intentionally appear under `INDTools / Crowd` inside Grasshopper.
+- `build.ps1 -DeployToGrasshopper` now creates the clean deploy folder before copying files.
+- `X:\CompDesign_Projects\Library\crowd_flow\plugin_library` was refreshed from `GhCrowdFlow-release\artifacts\bin\GrasshopperComponents\Release\net48` and hash-matched against the repo artifacts.

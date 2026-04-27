@@ -6,7 +6,17 @@
 
 **What merge would require:** Mainly a product decision rather than a code rewrite. If the standalone repo later needs fully public branding, this would require a coordinated rename across csproj metadata, component categories, build scripts, docs, and deployment expectations.
 
-**Status:** open
+**Status:** superseded on 2026-04-27. The standalone assembly/deploy identity is now `CrowdFlow` / `Crowd Flow`; only the Grasshopper component tab remains `INDTools` by product decision.
+
+## 2026-04-27 - Keeps INDTools as Grasshopper tab only
+
+**What diverges:** The standalone plugin uses `CrowdFlow.gha`, `Crowd Flow` plugin metadata, and `%APPDATA%\Grasshopper\Libraries\CrowdFlow\...` deployment, while the components still appear under the `INDTools` Grasshopper tab and `Crowd` section.
+
+**Why:** The plugin must be installable independently from INDTools, but the team wants the user-facing component location in Grasshopper to stay under the familiar INDTools tab.
+
+**What merge would require:** If this later merges back into the full INDTools plugin, either keep the separate `CrowdFlow` assembly as an optional package or move the component classes back under the shared INDTools assembly and remove the standalone deploy path.
+
+**Status:** accepted
 
 ## 2026-04-24 - Uses Word COM for report export
 

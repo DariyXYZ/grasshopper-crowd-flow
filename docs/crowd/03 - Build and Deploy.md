@@ -90,3 +90,18 @@ tags:
 - Full multi-target verification:
   - `.\build.ps1 -AllFrameworks`
 - Direct solution-level builds can still hit transient `artifacts\obj\*.tmp` access conflicts, so they should not be treated as the canonical verification path for this branch.
+
+## 2026-04-27 standalone packaging correction
+
+- Canonical source repo for the standalone plugin is `C:\VS Code\GhCrowdFlow-release`.
+- Offline staging remains `X:\CompDesign_Projects\Library\crowd_flow`.
+- Do not refresh `plugin_library` from `INDToolsUpdate`; use the artifact output from this repo:
+  - `artifacts\bin\GrasshopperComponents\Release\net48`
+- Standalone plugin identity:
+  - assembly/artifact: `CrowdFlow.dll` / `CrowdFlow.gha`
+  - plugin metadata name: `Crowd Flow`
+  - deploy path: `%APPDATA%\Grasshopper\Libraries\CrowdFlow\net48`
+- Grasshopper component placement intentionally remains:
+  - tab: `INDTools`
+  - section: `Crowd`
+- `build.ps1 -DeployToGrasshopper` now creates the deploy directory before copy, so a clean experiment with no existing `CrowdFlow` folder can still install correctly.
