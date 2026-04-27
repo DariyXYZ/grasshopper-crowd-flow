@@ -3,7 +3,6 @@ using System.Text;
 using System.IO.Compression;
 using System.Xml.Linq;
 using Crowd.Models;
-using Rhino;
 
 namespace Crowd.Services;
 
@@ -157,7 +156,6 @@ public static class CrowdReportExportService
         }
         catch (Exception ex)
         {
-            RhinoApp.WriteLine($"Crowd report export failed: {GetDetailedExceptionMessage(ex)}");
             throw new InvalidOperationException(GetDetailedExceptionMessage(ex), ex);
         }
         finally
@@ -262,7 +260,7 @@ public static class CrowdReportExportService
             return string.Empty;
         }
 
-        string normalized = value.Trim().ToLowerInvariant();
+        string normalized = value!.Trim().ToLowerInvariant();
         if (normalized.Contains("throughput"))
         {
             return "throughput";
@@ -330,7 +328,7 @@ public static class CrowdReportExportService
             return string.Empty;
         }
 
-        int separatorIndex = legendTitle.LastIndexOf(',');
+        int separatorIndex = legendTitle!.LastIndexOf(',');
         if (separatorIndex < 0 || separatorIndex >= legendTitle.Length - 1)
         {
             return string.Empty;
@@ -341,7 +339,7 @@ public static class CrowdReportExportService
 
     private static string AppendUnit(string value, string? unit)
     {
-        return string.IsNullOrWhiteSpace(unit) ? value : $"{value} {unit.Trim()}";
+        return string.IsNullOrWhiteSpace(unit) ? value : $"{value} {unit!.Trim()}";
     }
 
     private static string NormalizeBasePath(string outputPath, string scenarioName, string projectName)
@@ -436,7 +434,7 @@ public static class CrowdReportExportService
 
         foreach (XElement textNode in documentXml.Descendants().Where(node => node.Name.LocalName == "t"))
         {
-            string value = FixMojibake(textNode.Value);
+            string value = textNode.Value;
 
             foreach (KeyValuePair<string, string> placeholder in placeholders)
             {
@@ -470,65 +468,6 @@ public static class CrowdReportExportService
         using Stream updatedStream = updatedEntry.Open();
         using StreamWriter writer = new(updatedStream, new UTF8Encoding(false));
         documentXml.Save(writer, SaveOptions.DisableFormatting);
-    }
-
-    private static string FixMojibake(string value)
-    {
-        if (string.IsNullOrEmpty(value) || !LooksLikeMojibake(value))
-        {
-            return value;
-        }
-
-        try
-        {
-            Encoding windows1251 = Encoding.GetEncoding(1251);
-            byte[] bytes = windows1251.GetBytes(value);
-            string repaired = Encoding.UTF8.GetString(bytes);
-            return LooksMoreReadable(repaired, value) ? repaired : value;
-        }
-        catch
-        {
-            return value;
-        }
-    }
-
-    private static bool LooksLikeMojibake(string value)
-    {
-        return value.Contains("Р") ||
-               value.Contains("С") ||
-               value.Contains("вЂ");
-    }
-
-    private static bool LooksMoreReadable(string candidate, string original)
-    {
-        int candidateCyrillic = CountCyrillicLetters(candidate);
-        int candidateMarkers = CountMojibakeMarkers(candidate);
-        int originalMarkers = CountMojibakeMarkers(original);
-
-        return candidateCyrillic > 0 && candidateMarkers < originalMarkers;
-    }
-
-    private static int CountCyrillicLetters(string value)
-    {
-        int count = 0;
-        foreach (char symbol in value)
-        {
-            if ((symbol >= 'А' && symbol <= 'я') || symbol == 'Ё' || symbol == 'ё')
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    private static int CountMojibakeMarkers(string value)
-    {
-        int count = 0;
-        count += value.Count(symbol => symbol == 'Р');
-        count += value.Count(symbol => symbol == 'С');
-        count += value.Contains("вЂ") ? 2 : 0;
-        return count;
     }
 
     private static void ReplaceAllText(object document, string token, string replacement)
@@ -614,46 +553,6 @@ public static class CrowdReportExportService
             ReleaseComObject(find);
             ReleaseComObject(range);
             ReleaseComObject(content);
-        }
-    }
-
-    private static void ReplaceParagraphToken(object document, string token, string replacement)
-    {
-        object? paragraphs = null;
-
-        try
-        {
-            paragraphs = GetProperty(document, "Paragraphs");
-            int count = Convert.ToInt32(GetProperty(paragraphs, "Count"));
-
-            for (int index = 1; index <= count; index++)
-            {
-                object? paragraph = null;
-                object? range = null;
-
-                try
-                {
-                    paragraph = InvokeMethod(paragraphs, "Item", index);
-                    range = GetProperty(paragraph, "Range");
-                    string text = Convert.ToString(GetProperty(range, "Text")) ?? string.Empty;
-
-                    if (!text.Contains(token))
-                    {
-                        continue;
-                    }
-
-                    SetProperty(range, "Text", text.Replace(token, replacement));
-                }
-                finally
-                {
-                    ReleaseComObject(range);
-                    ReleaseComObject(paragraph);
-                }
-            }
-        }
-        finally
-        {
-            ReleaseComObject(paragraphs);
         }
     }
 
@@ -972,7 +871,7 @@ public static class CrowdReportExportService
                 BindingFlags.GetProperty,
                 null,
                 target,
-                null);
+                null)!;
         }
         catch (TargetInvocationException ex)
         {
@@ -1014,7 +913,7 @@ public static class CrowdReportExportService
                 BindingFlags.InvokeMethod,
                 null,
                 target,
-                args);
+                args)!;
         }
         catch (TargetInvocationException ex)
         {
