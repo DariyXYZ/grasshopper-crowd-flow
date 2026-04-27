@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 using GrasshopperComponents.Utilities;
@@ -9,7 +9,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdHeatmapLegendComponent : IndGhComponent
 {
     public CreateCrowdHeatmapLegendComponent()
-        : base("Create Crowd Heatmap Legend", "HeatLegend", "Builds a separate horizontal legend for a crowd heatmap.", "INDTools", "Crowd")
+        : base("Create Crowd Heatmap Legend", "HeatLegend", "Builds a separate horizontal legend for a crowd heatmap.", "Crowd Flow", "Crowd")
     {
     }
 

@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper;
 using Grasshopper.Kernel;
@@ -15,7 +15,7 @@ public sealed class ExportCrowdImageComponent : IndGhComponent
     private const int TriggerStretchMilliseconds = 1200;
 
     public ExportCrowdImageComponent()
-        : base("Export Crowd Image", "ExportImg", "Captures a report-ready PNG from crowd geometry, model content, or heatmap output.", "INDTools", "Crowd")
+        : base("Export Crowd Image", "ExportImg", "Captures a report-ready PNG from crowd geometry, model content, or heatmap output.", "Crowd Flow", "Crowd")
     {
     }
 

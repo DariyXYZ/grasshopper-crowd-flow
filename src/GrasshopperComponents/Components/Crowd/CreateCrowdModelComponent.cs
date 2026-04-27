@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 using GrasshopperComponents.Utilities;
@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdModelComponent : IndGhComponent
 {
     public CreateCrowdModelComponent()
-        : base("Create Crowd Model", "Model", "Combines floor, sources, obstacles, exits, and agent settings into a crowd model.", "INDTools", "Crowd")
+        : base("Create Crowd Model", "Model", "Combines floor, sources, obstacles, exits, and agent settings into a crowd model.", "Crowd Flow", "Crowd")
     {
     }
 

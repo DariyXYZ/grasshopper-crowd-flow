@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net48;net7.0;net8.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
     <AssemblyName>CrowdFlow</AssemblyName>
     <Title>Crowd Flow</Title>
@@ -16,9 +16,7 @@
     <PackageReference Include="Grasshopper" ExcludeAssets="runtime" />
     <PackageReference Include="RhinoCommon" />
     <PackageReference Include="System.Resources.Extensions" />
-    <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
-    <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
-    <Reference Include="System.Windows.Forms" Condition="'$(TargetFramework)' == 'net48'" />
+    <PackageReference Include="System.Drawing.Common" />
   </ItemGroup>
 
   <ItemGroup>

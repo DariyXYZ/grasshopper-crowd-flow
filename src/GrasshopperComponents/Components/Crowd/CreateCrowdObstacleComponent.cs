@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdObstacleComponent : IndGhComponent
 {
     public CreateCrowdObstacleComponent()
-        : base("Create Crowd Obstacles", "Obs", "Creates obstacle regions that agents must navigate around.", "INDTools", "Crowd")
+        : base("Create Crowd Obstacles", "Obs", "Creates obstacle regions that agents must navigate around.", "Crowd Flow", "Crowd")
     {
     }
 

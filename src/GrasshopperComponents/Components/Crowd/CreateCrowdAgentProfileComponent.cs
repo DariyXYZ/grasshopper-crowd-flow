@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 
@@ -7,7 +7,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdAgentProfileComponent : IndGhComponent
 {
     public CreateCrowdAgentProfileComponent()
-        : base("Create Crowd Agent Profile", "Agent", "Creates reusable agent motion settings for the crowd solver.", "INDTools", "Crowd")
+        : base("Create Crowd Agent Profile", "Agent", "Creates reusable agent motion settings for the crowd solver.", "Crowd Flow", "Crowd")
     {
     }
 

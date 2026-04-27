@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper;
 using Grasshopper.Kernel;
@@ -11,7 +11,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class RunCrowdSimulationComponent : IndGhComponent
 {
     public RunCrowdSimulationComponent()
-        : base("Run Crowd Simulation", "Solve", "Runs the crowd solver and returns trajectories, timeline data, and core reporting metrics.", "INDTools", "Crowd")
+        : base("Run Crowd Simulation", "Solve", "Runs the crowd solver and returns trajectories, timeline data, and core reporting metrics.", "Crowd Flow", "Crowd")
     {
     }
 

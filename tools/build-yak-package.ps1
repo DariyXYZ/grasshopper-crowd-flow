@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $RepoRoot     = Split-Path $PSScriptRoot -Parent
 $ArtifactBase = Join-Path $RepoRoot "artifacts\bin\GrasshopperComponents\$Configuration"
 $DistRoot     = Join-Path $RepoRoot "dist\yak\crowdflow"
-$Frameworks   = @("net48", "net7.0")
+$Frameworks   = @("net8.0")
 $ExcludeExt   = @(".pdb", ".xml")
 
 foreach ($tfm in $Frameworks) {

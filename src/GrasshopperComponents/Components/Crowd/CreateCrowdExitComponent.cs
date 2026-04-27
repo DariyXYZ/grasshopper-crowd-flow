@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdExitComponent : IndGhComponent
 {
     public CreateCrowdExitComponent()
-        : base("Create Crowd Exits", "Exit", "Creates destination exits for the crowd solver.", "INDTools", "Crowd")
+        : base("Create Crowd Exits", "Exit", "Creates destination exits for the crowd solver.", "Crowd Flow", "Crowd")
     {
     }
 

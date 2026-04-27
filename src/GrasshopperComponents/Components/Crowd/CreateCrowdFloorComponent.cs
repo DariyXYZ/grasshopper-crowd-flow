@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class CreateCrowdFloorComponent : IndGhComponent
 {
     public CreateCrowdFloorComponent()
-        : base("Create Crowd Floor", "Floor", "Creates a walkable floor for crowd simulation from a closed planar boundary.", "INDTools", "Crowd")
+        : base("Create Crowd Floor", "Floor", "Creates a walkable floor for crowd simulation from a closed planar boundary.", "Crowd Flow", "Crowd")
     {
     }
 

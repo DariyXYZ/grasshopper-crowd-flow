@@ -1,4 +1,4 @@
-using Crowd.Models;
+﻿using Crowd.Models;
 using Crowd.Services;
 using Grasshopper.Kernel;
 using GrasshopperComponents.Utilities;
@@ -8,7 +8,7 @@ namespace GrasshopperComponents.Components.Crowd;
 public sealed class ExportCrowdReportComponent : IndGhComponent
 {
     public ExportCrowdReportComponent()
-        : base("Export Crowd Report", "ExportPdf", "Builds a DOCX/PDF crowd report from the simulation result, heatmap, and exported image.", "INDTools", "Crowd")
+        : base("Export Crowd Report", "ExportPdf", "Builds a DOCX/PDF crowd report from the simulation result, heatmap, and exported image.", "Crowd Flow", "Crowd")
     {
     }
 
