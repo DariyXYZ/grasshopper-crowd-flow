@@ -8,11 +8,18 @@ namespace Crowd.Services;
 
 public static class CrowdSimulationService
 {
+    // --- Integration ---
     private const double MaxInternalTimeStep = 0.2;
     private const double StalledMoveFactor = 0.5;
-    private const double NoiseFrequency = 0.65;
     private const double VelocityBlendFactor = 0.88;
     private const double DesiredVelocityBlendFactor = 0.94;
+
+    // --- Steering noise ---
+    private const double NoiseFrequency = 0.65;
+    private const double StartScatterDurationMin = 1.8;
+    private const double StartScatterDurationMax = 4.2;
+
+    // --- Local candidate scoring weights ---
     private const double CandidateFieldWeight = 1.9;
     private const double CandidateHeadingWeight = 1.1;
     private const double CandidateDensityWeight = 1.5;
@@ -30,19 +37,34 @@ public static class CrowdSimulationService
     private const double CandidateTargetAlignmentWeight = 1.4;
     private const double CandidateLowProgressPenaltyWeight = 0.95;
     private const double CandidateRecirculationPenaltyWeight = 1.35;
-    private const double WallInfluenceFactor = 2.4;
-    private const double WallRepulsionWeight = 2.05;
-    private const double TimeToCollisionWeight = 1.8;
     private const double CandidateTurnWeight = 1.15;
     private const double CandidateBlendTemperature = 0.38;
-    private const double StartScatterDurationMin = 1.8;
-    private const double StartScatterDurationMax = 4.2;
+    private const double CurvaturePenaltyWeight = 1.1;
+
+    // --- Wall / avoidance ---
+    private const double WallInfluenceFactor = 2.4;
+    private const double WallRepulsionWeight = 2.05;
+    private const double WallFollowWeight = 0.08;
+    private const double WallClearancePreviewFactor = 1.25;
+    private const double CorridorVisibilityTurnPenalty = 0.32;
+    private const double CorridorVisibilityClearanceWeight = 0.22;
+    private const double CorridorVisibilityProgressWeight = 1.0;
+    private const double BottleneckPreviewStepFactor = 1.1;
+    private const int BottleneckPreviewSteps = 2;
+
+    // --- Neighbor separation / TTC ---
+    private const double TimeToCollisionWeight = 1.8;
+    private const double AlignedNeighborSpreadWeight = 0.42;
+
+    // --- Behavioral mode: final approach ---
     private const double FinalApproachDistanceFactor = 4.5;
     private const double FinalApproachSeparationFactor = 0.4;
     private const double FinalApproachNoiseFactor = 0.15;
     private const double FinalApproachWanderFactor = 0.14;
     private const double FinalApproachLaneBiasFactor = 0.2;
     private const double FinalApproachPullWeight = 1.35;
+
+    // --- Behavioral mode: target zone ---
     private const double TargetZoneNoiseFactor = 0.05;
     private const double TargetZoneWanderFactor = 0.07;
     private const double TargetZoneLaneBiasFactor = 0.1;
@@ -50,40 +72,48 @@ public static class CrowdSimulationService
     private const double TargetZoneWallFollowFactor = 0.52;
     private const double TargetZoneBlendTemperatureFactor = 0.58;
     private const double TargetZoneCommitFactor = 0.22;
+    private const double TargetZoneStabilityDistanceFactor = 6.0;
+
+    // --- Behavioral mode: high-clarity open flow ---
     private const double HighClarityNoiseFactor = 0.5;
     private const double HighClarityWanderFactor = 0.38;
+
+    // --- Behavioral mode: bottleneck ---
     private const double BottleneckNoiseFactor = 0.42;
     private const double BottleneckWanderFactor = 0.28;
     private const double BottleneckSeparationBoost = 1.28;
     private const double BottleneckFlowFollowFactor = 0.7;
     private const double BottleneckBlendTemperatureFactor = 0.82;
     private const double BottleneckCommitFactor = 0.42;
-    private const double TargetZoneStabilityDistanceFactor = 6.0;
-    private const double CollisionFreeSpeedBlend = 0.58;
-    private const double WallFollowWeight = 0.08;
-    private const double EscapeWeight = 0.28;
-    private const double FlowFollowWeight = 0.08;
     private const double BottleneckStabilizationWeight = 0.82;
+
+    // --- Speed and conflict ---
+    private const double CollisionFreeSpeedBlend = 0.58;
+    private const double FlowFollowWeight = 0.08;
+    private const double EscapeWeight = 0.28;
     private const double ConflictDampingNoiseFactor = 0.16;
     private const double ConflictDampingWanderFactor = 0.1;
-    private const double AlignedNeighborSpreadWeight = 0.42;
-    private const double WallClearancePreviewFactor = 1.25;
-    private const double CorridorVisibilityTurnPenalty = 0.32;
-    private const double CorridorVisibilityClearanceWeight = 0.22;
-    private const double CorridorVisibilityProgressWeight = 1.0;
+
+    // --- Exit absorption ---
     private const double ExitAbsorptionDistanceFactor = 2.8;
     private const double ExitSnapSpeedThreshold = 0.35;
     private const double ExitApproachDampingFactor = 0.32;
     private const double ExitSpiralDetectionDistanceFactor = 4.0;
     private const double ExitClosingSpeedFactor = 0.42;
+
+    // --- Spawn diffusion ---
     private const double EntranceDiffusionFieldFactor = 0.52;
     private const double EntranceDiffusionRandomFactor = 2.4;
     private const double EntranceDiffusionSideFactor = 1.9;
-    private const double CurvaturePenaltyWeight = 1.1;
-    private const double BottleneckPreviewStepFactor = 1.1;
-    private const int BottleneckPreviewSteps = 2;
+
+    // --- Stuck / deadlock ---
     private const double StuckProgressTolerance = 0.02;
     private const double StuckActivationTime = 1.35;
+    private const double FieldRegressionCellFactor = 0.35;
+    private const double FieldRegressionStepFactor = 0.45;
+    private const double ConstrainedWinnerCollapseGap = 0.24;
+
+    // --- Exit choice utility ---
     private const double ExitDistanceWeight = 0.68;
     private const double ExitCongestionWeight = 1.45;
     private const double ExitQueueWeight = 1.2;
@@ -92,9 +122,8 @@ public static class CrowdSimulationService
     private const double ExitAwarenessRadius = 4.5;
     private const double ExitQueueRadius = 6.0;
     private const double ExitSoftmaxTemperature = 0.42;
-    private const double FieldRegressionCellFactor = 0.35;
-    private const double FieldRegressionStepFactor = 0.45;
-    private const double ConstrainedWinnerCollapseGap = 0.24;
+
+    // --- Simulation termination ---
     private const double StalledTailCompletionGraceSeconds = 90.0;
     private const double StalledTailMinimumStuckSeconds = 12.0;
     private const double StalledTailAverageSpeedThreshold = 0.05;
@@ -924,7 +953,7 @@ public static class CrowdSimulationService
 
         double travelDistance = distance * grid.Floor.CellSize;
         double travelTime = travelDistance / Math.Max(0.2, preferredSpeed);
-        (double congestion, double queuePressure, double progressPenalty) = EstimateExitCongestion(exitIndex, exits[exitIndex].Location, position, activeAgents, travelDistance, timeGap);
+        (double congestion, double queuePressure, double progressPenalty) = EstimateExitCongestion(exitIndex, exits[exitIndex].Location, position, activeAgents, spatialIndex, travelDistance, timeGap);
         double personalBias = Math.Sin(noiseOffset + (exitIndex * 1.713)) * 0.9;
         double imperfectTravelTime = Math.Sqrt(Math.Max(0.05, travelTime)) * (1.0 + (Math.Cos(noiseOffset + (exitIndex * 0.917)) * 0.05));
 
@@ -941,6 +970,7 @@ public static class CrowdSimulationService
         Point3d exitLocation,
         Point3d position,
         IReadOnlyList<CrowdAgentState> activeAgents,
+        AgentSpatialIndex? spatialIndex,
         double pathDistance,
         double timeGap)
     {
@@ -950,29 +980,70 @@ public static class CrowdSimulationService
         double routeAwarenessRadius = Math.Max(ExitAwarenessRadius * 1.4, Math.Min(pathDistance * 0.35, ExitQueueRadius * 1.8));
         double currentDistanceToExit = position.DistanceTo(exitLocation);
 
-        foreach (CrowdAgentState other in activeAgents)
+        if (spatialIndex != null)
         {
-            if (other.IsFinished || other.ExitIndex != exitIndex)
+            // Fast path: query only nearby agents for local competition and progress penalty.
+            double localQueryRadius = Math.Max(routeAwarenessRadius, Math.Max(ExitQueueRadius, pathDistance * 0.3));
+            foreach (CrowdAgentState other in spatialIndex.Query(position, localQueryRadius))
             {
-                continue;
+                if (other.IsFinished || other.ExitIndex != exitIndex)
+                {
+                    continue;
+                }
+
+                double distanceToAgent = other.Position.DistanceTo(position);
+                if (distanceToAgent <= routeAwarenessRadius)
+                {
+                    localCompetition += 1.0 - Math.Min(1.0, distanceToAgent / Math.Max(routeAwarenessRadius, 1e-6));
+                }
+
+                double distanceToExit = other.Position.DistanceTo(exitLocation);
+                if (distanceToExit < currentDistanceToExit && distanceToAgent <= Math.Max(ExitQueueRadius, pathDistance * 0.3))
+                {
+                    double followingGap = Math.Max(0.25, timeGap * other.PreferredSpeed);
+                    progressPenalty += Math.Max(0.0, followingGap - distanceToAgent) / followingGap;
+                }
             }
 
-            double distanceToAgent = other.Position.DistanceTo(position);
-            if (distanceToAgent <= routeAwarenessRadius)
+            // Queue pressure: agents physically near the exit (different query center).
+            foreach (CrowdAgentState other in spatialIndex.Query(exitLocation, ExitQueueRadius))
             {
-                localCompetition += 1.0 - Math.Min(1.0, distanceToAgent / Math.Max(routeAwarenessRadius, 1e-6));
-            }
+                if (other.IsFinished || other.ExitIndex != exitIndex)
+                {
+                    continue;
+                }
 
-            double distanceToExit = other.Position.DistanceTo(exitLocation);
-            if (distanceToExit <= ExitQueueRadius)
-            {
+                double distanceToExit = other.Position.DistanceTo(exitLocation);
                 queueCompetition += 1.0 - Math.Min(1.0, distanceToExit / ExitQueueRadius);
             }
-
-            if (distanceToExit < currentDistanceToExit && distanceToAgent <= Math.Max(ExitQueueRadius, pathDistance * 0.3))
+        }
+        else
+        {
+            // Fallback path used at spawn time when no spatial index is available yet.
+            foreach (CrowdAgentState other in activeAgents)
             {
-                double followingGap = Math.Max(0.25, timeGap * other.PreferredSpeed);
-                progressPenalty += Math.Max(0.0, followingGap - distanceToAgent) / followingGap;
+                if (other.IsFinished || other.ExitIndex != exitIndex)
+                {
+                    continue;
+                }
+
+                double distanceToAgent = other.Position.DistanceTo(position);
+                if (distanceToAgent <= routeAwarenessRadius)
+                {
+                    localCompetition += 1.0 - Math.Min(1.0, distanceToAgent / Math.Max(routeAwarenessRadius, 1e-6));
+                }
+
+                double distanceToExit = other.Position.DistanceTo(exitLocation);
+                if (distanceToExit <= ExitQueueRadius)
+                {
+                    queueCompetition += 1.0 - Math.Min(1.0, distanceToExit / ExitQueueRadius);
+                }
+
+                if (distanceToExit < currentDistanceToExit && distanceToAgent <= Math.Max(ExitQueueRadius, pathDistance * 0.3))
+                {
+                    double followingGap = Math.Max(0.25, timeGap * other.PreferredSpeed);
+                    progressPenalty += Math.Max(0.0, followingGap - distanceToAgent) / followingGap;
+                }
             }
         }
 

@@ -9,6 +9,10 @@ public sealed class CrowdGrid
     private readonly Point3d[,] _cellCenters;
     private readonly double[,] _boundaryDistances;
     private readonly double _tolerance;
+    private readonly Vector3d[,] _floorRepulsionDir;
+    private readonly double[,] _floorBoundaryDist;
+    private readonly Vector3d[][,]? _obstacleRepulsionDirs;
+    private readonly double[][,]? _obstacleBoundaryDists;
 
     public CrowdGrid(CrowdFloor floor, IReadOnlyList<CrowdObstacle> obstacles, double tolerance = 0.01)
     {
@@ -38,6 +42,18 @@ public sealed class CrowdGrid
         _walkable = new bool[Width, Height];
         _cellCenters = new Point3d[Width, Height];
         _boundaryDistances = new double[Width, Height];
+        _floorRepulsionDir = new Vector3d[Width, Height];
+        _floorBoundaryDist = new double[Width, Height];
+        if (obstacles.Count > 0)
+        {
+            _obstacleRepulsionDirs = new Vector3d[obstacles.Count][,];
+            _obstacleBoundaryDists = new double[obstacles.Count][,];
+            for (int i = 0; i < obstacles.Count; i++)
+            {
+                _obstacleRepulsionDirs[i] = new Vector3d[Width, Height];
+                _obstacleBoundaryDists[i] = new double[Width, Height];
+            }
+        }
 
         BuildWalkableMap();
         BuildBoundaryDistanceMap();
@@ -128,9 +144,33 @@ public sealed class CrowdGrid
             return Vector3d.Zero;
         }
 
+        (int x, int y) = ToCell(point);
+        if (IsWalkable(x, y))
+        {
+            Vector3d result = Vector3d.Zero;
+            double fd = _floorBoundaryDist[x, y];
+            if (fd < influenceRadius)
+            {
+                result += _floorRepulsionDir[x, y] * ((influenceRadius - fd) / influenceRadius);
+            }
+
+            if (_obstacleBoundaryDists != null)
+            {
+                for (int i = 0; i < Obstacles.Count; i++)
+                {
+                    double od = _obstacleBoundaryDists[i][x, y];
+                    if (od < influenceRadius)
+                    {
+                        result += _obstacleRepulsionDirs![i][x, y] * ((influenceRadius - od) / influenceRadius);
+                    }
+                }
+            }
+
+            return result;
+        }
+
         Vector3d repulsion = Vector3d.Zero;
         repulsion += GetCurveRepulsion(Floor.Boundary, point, influenceRadius, invert: false);
-
         foreach (CrowdObstacle obstacle in Obstacles)
         {
             repulsion += GetCurveRepulsion(obstacle.Boundary, point, influenceRadius, invert: false);
@@ -180,10 +220,20 @@ public sealed class CrowdGrid
             for (int y = 0; y < Height; y++)
             {
                 Point3d center = _cellCenters[x, y];
-                double minDistance = GetCurveDistance(Floor.Boundary, center);
-                foreach (CrowdObstacle obstacle in Obstacles)
+                double floorDist = GetCurveDistance(Floor.Boundary, center);
+                _floorBoundaryDist[x, y] = floorDist;
+                _floorRepulsionDir[x, y] = GetCurveRepulsionDirection(Floor.Boundary, center);
+
+                double minDistance = floorDist;
+                if (_obstacleBoundaryDists != null)
                 {
-                    minDistance = Math.Min(minDistance, GetCurveDistance(obstacle.Boundary, center));
+                    for (int i = 0; i < Obstacles.Count; i++)
+                    {
+                        double obsDist = GetCurveDistance(Obstacles[i].Boundary, center);
+                        _obstacleBoundaryDists[i][x, y] = obsDist;
+                        _obstacleRepulsionDirs![i][x, y] = GetCurveRepulsionDirection(Obstacles[i].Boundary, center);
+                        minDistance = Math.Min(minDistance, obsDist);
+                    }
                 }
 
                 _boundaryDistances[x, y] = minDistance;
@@ -248,5 +298,22 @@ public sealed class CrowdGrid
         }
 
         return point.DistanceTo(curve.PointAt(curveParameter));
+    }
+
+    private static Vector3d GetCurveRepulsionDirection(Curve curve, Point3d point)
+    {
+        if (!curve.ClosestPoint(point, out double curveParameter))
+        {
+            return Vector3d.Zero;
+        }
+
+        Vector3d direction = point - curve.PointAt(curveParameter);
+        if (direction.Length <= 1e-9)
+        {
+            return Vector3d.Zero;
+        }
+
+        direction.Unitize();
+        return direction;
     }
 }
