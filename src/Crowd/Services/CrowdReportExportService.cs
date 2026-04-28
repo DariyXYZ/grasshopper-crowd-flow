@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.IO.Compression;
 using System.Xml.Linq;
@@ -857,9 +858,19 @@ public static class CrowdReportExportService
         SetProperty(picture, "Width", (float)(currentWidth * scale));
     }
 
+    // Word COM is only available on Windows; on other platforms return null so the caller
+    // surfaces a clear "Word not installed" error rather than a platform exception
     private static Type? GetWordApplicationType()
     {
+#if NETFRAMEWORK
         return Type.GetTypeFromProgID("Word.Application");
+#else
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return null;
+        }
+        return Type.GetTypeFromProgID("Word.Application");
+#endif
     }
 
     private static object GetProperty(object target, string name)

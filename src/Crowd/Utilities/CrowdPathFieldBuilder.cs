@@ -3,6 +3,7 @@ using Rhino.Geometry;
 
 namespace Crowd.Utilities;
 
+/// <summary>Computes Dijkstra-based distance fields and provides gradient-descent helpers for crowd pathfinding.</summary>
 public static class CrowdPathFieldBuilder
 {
     // Tuned 2026-04-28: raised from 2.15/0.72 — wider influence zone and stronger penalty
@@ -96,6 +97,7 @@ public static class CrowdPathFieldBuilder
         return field;
     }
 
+    /// <summary>Returns the walkable neighbor cell with the lowest field value, or the current cell when already at the minimum.</summary>
     public static (int X, int Y) GetBestNeighbor(CrowdGrid grid, double[,] field, int x, int y)
     {
         double current = field[x, y];

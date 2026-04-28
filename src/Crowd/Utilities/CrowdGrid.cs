@@ -3,6 +3,7 @@ using Rhino.Geometry;
 
 namespace Crowd.Utilities;
 
+/// <summary>Rasterises a floor and its obstacles into a discrete walkability grid used for pathfinding and spatial queries.</summary>
 public sealed class CrowdGrid
 {
     private readonly bool[,] _walkable;
@@ -14,6 +15,7 @@ public sealed class CrowdGrid
     private readonly Vector3d[][,]? _obstacleRepulsionDirs;
     private readonly double[][,]? _obstacleBoundaryDists;
 
+    /// <summary>Builds the walkability and boundary-distance maps from the given floor and obstacles.</summary>
     public CrowdGrid(CrowdFloor floor, IReadOnlyList<CrowdObstacle> obstacles, double tolerance = 0.01)
     {
         if (floor == null)
@@ -59,27 +61,37 @@ public sealed class CrowdGrid
         BuildBoundaryDistanceMap();
     }
 
+    /// <summary>Floor geometry this grid was built from.</summary>
     public CrowdFloor Floor { get; }
 
+    /// <summary>Obstacles whose interiors are marked non-walkable in the grid.</summary>
     public IReadOnlyList<CrowdObstacle> Obstacles { get; }
 
+    /// <summary>Number of grid columns along the X axis.</summary>
     public int Width { get; }
 
+    /// <summary>Number of grid rows along the Y axis.</summary>
     public int Height { get; }
 
+    /// <summary>World-space minimum X coordinate of the grid.</summary>
     public double MinX { get; }
 
+    /// <summary>World-space minimum Y coordinate of the grid.</summary>
     public double MinY { get; }
 
+    /// <summary>World-space maximum X coordinate of the grid.</summary>
     public double MaxX { get; }
 
+    /// <summary>World-space maximum Y coordinate of the grid.</summary>
     public double MaxY { get; }
 
+    /// <summary>Returns true when the cell at <paramref name="x"/>, <paramref name="y"/> is within bounds and walkable.</summary>
     public bool IsWalkable(int x, int y)
     {
         return x >= 0 && x < Width && y >= 0 && y < Height && _walkable[x, y];
     }
 
+    /// <summary>Finds the nearest walkable cell to a world-space point; returns false when no walkable cell exists.</summary>
     public bool TryGetClosestWalkableCell(Point3d point, out int x, out int y)
     {
         (int px, int py) = ToCell(point);
@@ -114,6 +126,7 @@ public sealed class CrowdGrid
         return false;
     }
 
+    /// <summary>Converts a world-space point to the nearest grid cell coordinates, clamped to grid bounds.</summary>
     public (int X, int Y) ToCell(Point3d point)
     {
         int x = (int)Math.Floor((point.X - MinX) / Floor.CellSize);
@@ -121,11 +134,13 @@ public sealed class CrowdGrid
         return (Math.Max(0, Math.Min(Width - 1, x)), Math.Max(0, Math.Min(Height - 1, y)));
     }
 
+    /// <summary>Returns the world-space center point of the cell at grid coordinates <paramref name="x"/>, <paramref name="y"/>.</summary>
     public Point3d GetCellCenter(int x, int y)
     {
         return _cellCenters[x, y];
     }
 
+    /// <summary>Returns true when the world-space point maps to a walkable cell within a reasonable snapping distance.</summary>
     public bool IsWalkable(Point3d point)
     {
         if (!TryGetClosestWalkableCell(point, out int x, out int y))
@@ -137,6 +152,7 @@ public sealed class CrowdGrid
         return cellCenter.DistanceTo(point) <= Floor.CellSize * 1.5;
     }
 
+    /// <summary>Returns a repulsion vector pushing away from the nearest floor or obstacle boundary within the given influence radius.</summary>
     public Vector3d GetBoundaryRepulsion(Point3d point, double influenceRadius)
     {
         if (influenceRadius <= 1e-6)
@@ -179,6 +195,7 @@ public sealed class CrowdGrid
         return repulsion;
     }
 
+    /// <summary>Returns the minimum distance from the point to any floor or obstacle boundary.</summary>
     public double GetBoundaryDistance(Point3d point)
     {
         (int x, int y) = ToCell(point);

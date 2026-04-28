@@ -1,7 +1,9 @@
 namespace Crowd.Models;
 
+/// <summary>Holds all outputs produced by a completed crowd simulation run.</summary>
 public sealed class CrowdSimulationResult
 {
+    /// <summary>Initializes a new <see cref="CrowdSimulationResult"/> with model, frames, paths, metrics, profile, and completion data.</summary>
     public CrowdSimulationResult(
         CrowdModel model,
         IReadOnlyList<CrowdFrame> frames,
@@ -24,21 +26,30 @@ public sealed class CrowdSimulationResult
         CompletedAllAgents = completedAllAgents;
     }
 
+    /// <summary>The input model that was used to run this simulation.</summary>
     public CrowdModel Model { get; }
 
+    /// <summary>Ordered list of per-step frames capturing agent positions over time.</summary>
     public IReadOnlyList<CrowdFrame> Frames { get; }
 
+    /// <summary>Full trajectory path recorded for each agent.</summary>
     public IReadOnlyList<CrowdAgentPath> AgentPaths { get; }
 
+    /// <summary>Aggregated performance metrics computed from the simulation run.</summary>
     public CrowdSimulationCoreMetrics CoreMetrics { get; }
 
+    /// <summary>Simulation configuration profile used during this run.</summary>
     public CrowdSimulationProfile Profile { get; }
 
+    /// <summary>Total number of agents that were spawned during the simulation.</summary>
     public int TotalSpawned { get; }
 
+    /// <summary>Total number of agents that successfully reached an exit.</summary>
     public int TotalFinished { get; }
 
+    /// <summary>Wall-clock simulated time in seconds from start to last event.</summary>
     public double SimulatedDuration { get; }
 
+    /// <summary>True when every spawned agent reached an exit before the simulation ended.</summary>
     public bool CompletedAllAgents { get; }
 }

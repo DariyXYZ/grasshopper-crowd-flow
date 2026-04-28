@@ -9,17 +9,26 @@ namespace Crowd.Services;
 public static class CrowdSimulationService
 {
     // --- Integration ---
+    // MaxInternalTimeStep: sub-step cap keeps numeric integration stable at high speeds
+    // StalledMoveFactor: stalled agents move at 50% speed to keep them from full stop
+    // VelocityBlendFactor/DesiredVelocityBlendFactor: exponential smoothing — higher = more inertia
     private const double MaxInternalTimeStep = 0.2;
     private const double StalledMoveFactor = 0.5;
     private const double VelocityBlendFactor = 0.88;
     private const double DesiredVelocityBlendFactor = 0.94;
 
     // --- Steering noise ---
+    // NoiseFrequency: spatial frequency of per-agent Perlin-like noise in path field space
+    // StartScatterDuration: agents use high randomness for 1.8–4.2s after spawn to disperse from source
     private const double NoiseFrequency = 0.65;
     private const double StartScatterDurationMin = 1.8;
     private const double StartScatterDurationMax = 4.2;
 
     // --- Local candidate scoring weights ---
+    // Relative weights of each scoring term in SelectPreferredTargetPoint.
+    // Higher weight = that term dominates candidate selection.
+    // FieldWeight drives global pathfinding; HeadingWeight preserves momentum;
+    // DensityWeight spreads agents; ClearanceWeight keeps agents from walls in constrained zones.
     private const double CandidateFieldWeight = 1.9;
     private const double CandidateHeadingWeight = 1.1;
     private const double CandidateDensityWeight = 1.5;
@@ -27,6 +36,9 @@ public static class CrowdSimulationService
     // Tuned 2026-04-28: raised from 1.45 — must outweigh fieldScore+headingScore combined
     // when agent is already moving along a wall; lower values cause persistent wall hugging
     private const double CandidateWidthWeight = 1.85;
+    // FlowSpacingWeight: rewards candidates that maintain gap to leading agent (CSM headway)
+    // BottleneckWeight/ApexPenaltyWeight/PocketTrapWeight: penalise candidates that enter traps
+    // LaneCommitmentWeight: low — only mild bias toward continuing current lane
     private const double CandidateFlowSpacingWeight = 1.65;
     private const double CandidateBottleneckWeight = 1.7;
     private const double CandidateApexPenaltyWeight = 1.6;
@@ -35,6 +47,13 @@ public static class CrowdSimulationService
     // Tuned 2026-04-28: raised from 0.11 — per-agent NoiseOffset creates route-family
     // diversity; too low collapses all agents from one source onto one dominant path
     private const double CandidateRandomnessWeight = 0.20;
+    // ForwardClearanceWeight: look-ahead space in travel direction — prevents stepping into dead-ends
+    // StreamPenaltyWeight: discourages joining aligned streams of agents (reduces channelisation)
+    // ProgressWeight: rewards candidates that reduce field value (move toward exit)
+    // TargetAlignmentWeight: active only in final approach / target zone — pulls toward exit directly
+    // LowProgressPenaltyWeight: penalises lateral or backward steps
+    // RecirculationPenaltyWeight: suppresses re-entry into already-visited constrained zones
+    // TurnWeight: rewards candidates consistent with upcoming path field curvature
     private const double CandidateForwardClearanceWeight = 1.35;
     private const double CandidateStreamPenaltyWeight = 1.45;
     private const double CandidateProgressWeight = 1.15;
@@ -46,9 +65,16 @@ public static class CrowdSimulationService
     // lower values collapse route families to single narrow channel in open space;
     // further reduced in constrained zones by BottleneckBlendTemperatureFactor / TargetZoneBlendTemperatureFactor
     private const double CandidateBlendTemperature = 0.48;
+    // CurvaturePenaltyWeight: penalises sharp turns relative to current heading
     private const double CurvaturePenaltyWeight = 1.1;
 
     // --- Wall / avoidance ---
+    // WallInfluenceFactor: multiplier on agent radius to define wall repulsion activation radius
+    // WallRepulsionWeight: strength of boundary repulsion force applied each step
+    // WallFollowWeight: intentionally low (0.08) — only mild wall-tangent alignment, not sticky following
+    // WallClearancePreviewFactor: look-ahead distance for clearance scoring, in multiples of desiredClearance
+    // CorridorVisibility*: weights for the corridor-visibility scoring sub-function
+    // BottleneckPreviewStep*: 2-step lookahead at 1.1× cell size for bottleneck penalty
     private const double WallInfluenceFactor = 2.4;
     private const double WallRepulsionWeight = 2.05;
     private const double WallFollowWeight = 0.08;
@@ -60,10 +86,14 @@ public static class CrowdSimulationService
     private const int BottleneckPreviewSteps = 2;
 
     // --- Neighbor separation / TTC ---
+    // TimeToCollisionWeight: strength of TTC-based avoidance force toward other agents
+    // AlignedNeighborSpreadWeight: mild lateral push to spread agents walking in the same direction
     private const double TimeToCollisionWeight = 1.8;
     private const double AlignedNeighborSpreadWeight = 0.42;
 
     // --- Behavioral mode: final approach ---
+    // Activated when agent is within DistanceFactor×radius of exit. Reduces noise/wander,
+    // adds direct pull toward exit, damps separation to allow tight queuing.
     private const double FinalApproachDistanceFactor = 4.5;
     private const double FinalApproachSeparationFactor = 0.4;
     private const double FinalApproachNoiseFactor = 0.15;
@@ -72,6 +102,8 @@ public static class CrowdSimulationService
     private const double FinalApproachPullWeight = 1.35;
 
     // --- Behavioral mode: target zone ---
+    // Very low noise/wander — agent is inside exit radius, absorbing. High wall follow
+    // factor keeps agent from bouncing; BlendTemperatureFactor reduces candidate spread.
     private const double TargetZoneNoiseFactor = 0.05;
     private const double TargetZoneWanderFactor = 0.07;
     private const double TargetZoneLaneBiasFactor = 0.1;
@@ -82,10 +114,13 @@ public static class CrowdSimulationService
     private const double TargetZoneStabilityDistanceFactor = 6.0;
 
     // --- Behavioral mode: high-clarity open flow ---
+    // Open space with clear gradient — higher noise/wander to spread route families
     private const double HighClarityNoiseFactor = 0.5;
     private const double HighClarityWanderFactor = 0.38;
 
     // --- Behavioral mode: bottleneck ---
+    // Constrained passage — higher flow follow / commit, reduced randomness, slight
+    // separation boost to prevent deadlock compression
     private const double BottleneckNoiseFactor = 0.42;
     private const double BottleneckWanderFactor = 0.28;
     private const double BottleneckSeparationBoost = 1.28;
@@ -95,6 +130,10 @@ public static class CrowdSimulationService
     private const double BottleneckStabilizationWeight = 0.82;
 
     // --- Speed and conflict ---
+    // CollisionFreeSpeedBlend: mix between desired and conflict-resolved speed
+    // FlowFollowWeight: mild flow-matching force (keeps agents from fighting stream direction)
+    // EscapeWeight: force applied when agent is in collision state
+    // ConflictDamping*: noise/wander injection during active conflict to break symmetry
     private const double CollisionFreeSpeedBlend = 0.58;
     private const double FlowFollowWeight = 0.08;
     private const double EscapeWeight = 0.28;
@@ -102,6 +141,11 @@ public static class CrowdSimulationService
     private const double ConflictDampingWanderFactor = 0.1;
 
     // --- Exit absorption ---
+    // AbsorptionDistanceFactor: exit captures agent when within Factor×exitRadius
+    // SnapSpeedThreshold: below this speed agent snaps straight to exit center
+    // ApproachDampingFactor: speed multiplier during final absorption glide
+    // SpiralDetectionDistanceFactor: radius for detecting agents orbiting exit
+    // ClosingSpeedFactor: speed correction for agents approaching exit tangentially
     private const double ExitAbsorptionDistanceFactor = 2.8;
     private const double ExitSnapSpeedThreshold = 0.35;
     private const double ExitApproachDampingFactor = 0.32;
@@ -109,11 +153,17 @@ public static class CrowdSimulationService
     private const double ExitClosingSpeedFactor = 0.42;
 
     // --- Spawn diffusion ---
+    // Agents near source use reduced FieldFactor and increased random/side bias to
+    // disperse from spawn point before committing to a route
     private const double EntranceDiffusionFieldFactor = 0.52;
     private const double EntranceDiffusionRandomFactor = 2.4;
     private const double EntranceDiffusionSideFactor = 1.9;
 
     // --- Stuck / deadlock ---
+    // StuckProgressTolerance: displacement below this per step counts as stuck
+    // StuckActivationTime: seconds before stuck recovery kicks in
+    // FieldRegression*: recovery teleport target — moves agent back along field gradient
+    // ConstrainedWinnerCollapseGap: score gap above which winner-collapse softmax is applied
     private const double StuckProgressTolerance = 0.02;
     private const double StuckActivationTime = 1.35;
     private const double FieldRegressionCellFactor = 0.35;
@@ -121,6 +171,9 @@ public static class CrowdSimulationService
     private const double ConstrainedWinnerCollapseGap = 0.24;
 
     // --- Exit choice utility ---
+    // Softmax over exits scored by distance, congestion, queue length, and current progress.
+    // SwitchThreshold: minimum utility gain required to switch away from current exit
+    // AwarenessRadius/QueueRadius: spatial query radii for congestion and queue estimation
     private const double ExitDistanceWeight = 0.68;
     private const double ExitCongestionWeight = 1.45;
     private const double ExitQueueWeight = 1.2;
@@ -131,6 +184,10 @@ public static class CrowdSimulationService
     private const double ExitSoftmaxTemperature = 0.42;
 
     // --- Simulation termination ---
+    // Grace/MinimumStuck: seconds after last completion before stall detection triggers
+    // AverageSpeedThreshold: m/s below which all remaining agents are considered stuck
+    // MaxActiveShare: if fewer than this fraction remain active, declare stalled tail
+    // LongRunActive/DurationShare: fallback cutoff — fire if tiny tail exceeds 65% of max duration
     private const double StalledTailCompletionGraceSeconds = 90.0;
     private const double StalledTailMinimumStuckSeconds = 12.0;
     private const double StalledTailAverageSpeedThreshold = 0.05;
