@@ -1,12 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net48;net7.0;net8.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="RhinoCommon" />
-    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
+    <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.IO.Compression.FileSystem" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
 </Project>

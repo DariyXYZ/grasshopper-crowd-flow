@@ -24,13 +24,17 @@ public static class CrowdSimulationService
     private const double CandidateHeadingWeight = 1.1;
     private const double CandidateDensityWeight = 1.5;
     private const double CandidateClearanceWeight = 1.3;
-    private const double CandidateWidthWeight = 1.45;
+    // Tuned 2026-04-28: raised from 1.45 — must outweigh fieldScore+headingScore combined
+    // when agent is already moving along a wall; lower values cause persistent wall hugging
+    private const double CandidateWidthWeight = 1.85;
     private const double CandidateFlowSpacingWeight = 1.65;
     private const double CandidateBottleneckWeight = 1.7;
     private const double CandidateApexPenaltyWeight = 1.6;
     private const double CandidatePocketTrapWeight = 1.65;
     private const double CandidateLaneCommitmentWeight = 0.55;
-    private const double CandidateRandomnessWeight = 0.11;
+    // Tuned 2026-04-28: raised from 0.11 — per-agent NoiseOffset creates route-family
+    // diversity; too low collapses all agents from one source onto one dominant path
+    private const double CandidateRandomnessWeight = 0.20;
     private const double CandidateForwardClearanceWeight = 1.35;
     private const double CandidateStreamPenaltyWeight = 1.45;
     private const double CandidateProgressWeight = 1.15;
@@ -38,7 +42,10 @@ public static class CrowdSimulationService
     private const double CandidateLowProgressPenaltyWeight = 0.95;
     private const double CandidateRecirculationPenaltyWeight = 1.35;
     private const double CandidateTurnWeight = 1.15;
-    private const double CandidateBlendTemperature = 0.38;
+    // Tuned 2026-04-28: raised from 0.38 — controls softmax spread around best candidate;
+    // lower values collapse route families to single narrow channel in open space;
+    // further reduced in constrained zones by BottleneckBlendTemperatureFactor / TargetZoneBlendTemperatureFactor
+    private const double CandidateBlendTemperature = 0.48;
     private const double CurvaturePenaltyWeight = 1.1;
 
     // --- Wall / avoidance ---

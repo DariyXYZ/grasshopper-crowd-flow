@@ -1,10 +1,10 @@
 name: crowdflow
-version: 0.1.0.0
+version: 0.1.1.0
 authors:
   - DariyXYZ
 description: >
   Grasshopper crowd simulation plugin with trajectory output and architectural
-  heatmap analysis in Rhino 8. Simulate pedestrian movement on floor plans,
+  heatmap analysis for Rhino 7 and 8. Simulate pedestrian movement on floor plans,
   visualize density, throughput, speed and congestion heatmaps, and export
   crowd reports for architectural analysis.
 url: "https://github.com/DariyXYZ/grasshopper-crowd-flow"

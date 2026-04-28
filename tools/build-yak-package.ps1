@@ -10,13 +10,13 @@ $ErrorActionPreference = "Stop"
 $RepoRoot     = Split-Path $PSScriptRoot -Parent
 $ArtifactBase = Join-Path $RepoRoot "artifacts\bin\GrasshopperComponents\$Configuration"
 $DistRoot     = Join-Path $RepoRoot "dist\yak\crowdflow"
-$Frameworks   = @("net8.0")
+$Frameworks   = @("net48", "net8.0")
 $ExcludeExt   = @(".pdb", ".xml")
 
 foreach ($tfm in $Frameworks) {
     Write-Host "Building $Configuration $tfm ..." -ForegroundColor Cyan
     & dotnet build "$RepoRoot\src\GrasshopperComponents\GrasshopperComponents.csproj" `
-        -c $Configuration -f $tfm --nologo -v quiet
+        -c $Configuration -f $tfm --nologo -v quiet -p:DeployToGrasshopper=false
     if ($LASTEXITCODE -ne 0) { throw "Build failed for $tfm (exit $LASTEXITCODE)" }
 }
 

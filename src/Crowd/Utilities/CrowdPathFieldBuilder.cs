@@ -5,8 +5,12 @@ namespace Crowd.Utilities;
 
 public static class CrowdPathFieldBuilder
 {
-    private const double BoundaryPenaltyDistanceFactor = 2.15;
-    private const double BoundaryPenaltyStrength = 0.72;
+    // Tuned 2026-04-28: raised from 2.15/0.72 — wider influence zone and stronger penalty
+    // make the Dijkstra inflate costs for wall-adjacent cells so the field gradient naturally
+    // routes agents through open space rather than along walls; previous values were too weak
+    // to overcome fieldScore (weight 1.9) when the shortest Euclidean path ran near a wall
+    private const double BoundaryPenaltyDistanceFactor = 3.5;
+    private const double BoundaryPenaltyStrength = 1.15;
 
     private static readonly (int X, int Y)[] NeighborOffsets = new (int X, int Y)[]
     {

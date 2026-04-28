@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net48;net7.0;net8.0</TargetFrameworks>
     <OutputType>Library</OutputType>
     <AssemblyName>CrowdFlow</AssemblyName>
     <Title>Crowd Flow</Title>
     <Company>DariyXYZ</Company>
     <Authors>DariyXYZ</Authors>
     <Description>Grasshopper crowd simulation plugin with trajectory output and heatmap mesh generation for Rhino 8.</Description>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
 
@@ -16,7 +16,9 @@
     <PackageReference Include="Grasshopper" ExcludeAssets="runtime" />
     <PackageReference Include="RhinoCommon" />
     <PackageReference Include="System.Resources.Extensions" />
-    <PackageReference Include="System.Drawing.Common" />
+    <PackageReference Include="System.Drawing.Common" Condition="'$(TargetFramework)' != 'net48'" />
+    <Reference Include="System.Drawing" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.Windows.Forms" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
 
   <ItemGroup>
