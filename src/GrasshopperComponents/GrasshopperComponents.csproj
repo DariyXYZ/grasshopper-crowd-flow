@@ -11,6 +11,11 @@
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
 
+  <!-- WinForms types (MouseButtons etc.) needed for button UI in net7/net8 -->
+  <PropertyGroup Condition="'$(TargetFramework)' != 'net48'">
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Crowd\Crowd.csproj" SetTargetFramework="TargetFramework=$(TargetFramework)" />
     <PackageReference Include="Grasshopper" ExcludeAssets="runtime" />
@@ -72,18 +77,22 @@
   </Target>
 
   <!-- Deploy templates alongside the plugin (framework-agnostic, only once on net8.0) -->
+  <!-- Primary source: X:\...\ (master). Fallback: repo tests\ copy. Output always named Flow.gh. -->
   <Target Name="DeployFlowTemplate" AfterTargets="CreateGhaArtifact"
           Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' == 'net8.0' and '$(CrowdFlowDeployRoot)' != ''">
     <PropertyGroup>
-      <_TemplateSrc>$(MSBuildThisFileDirectory)..\..\tests\grasshopper\crowd\flow-demo\Flow.gh</_TemplateSrc>
+      <_TemplateSrcMaster>X:\CompDesign_Projects\Library\crowd_flow\test_files\FlowTemplate.gh</_TemplateSrcMaster>
+      <_TemplateSrcRepo>$(MSBuildThisFileDirectory)..\..\tests\grasshopper\crowd\flow-demo\Flow.gh</_TemplateSrcRepo>
+      <_TemplateSrc Condition="Exists('$(_TemplateSrcMaster)')">$(_TemplateSrcMaster)</_TemplateSrc>
+      <_TemplateSrc Condition="'$(_TemplateSrc)' == '' and Exists('$(_TemplateSrcRepo)')">$(_TemplateSrcRepo)</_TemplateSrc>
       <_TemplateDeployDir>$(CrowdFlowDeployRoot)\templates</_TemplateDeployDir>
     </PropertyGroup>
     <MakeDir Directories="$(_TemplateDeployDir)" />
     <Copy SourceFiles="$(_TemplateSrc)"
-          DestinationFolder="$(_TemplateDeployDir)"
+          DestinationFiles="$(_TemplateDeployDir)\Flow.gh"
           SkipUnchangedFiles="false"
-          Condition="Exists('$(_TemplateSrc)')" />
-    <Message Importance="high" Text="Deployed Flow.gh template to $(_TemplateDeployDir)" />
-    <Warning Text="Flow.gh template source not found: $(_TemplateSrc)" Condition="!Exists('$(_TemplateSrc)')" />
+          Condition="'$(_TemplateSrc)' != ''" />
+    <Message Importance="high" Text="Deployed Flow.gh template from $(_TemplateSrc) to $(_TemplateDeployDir)" />
+    <Warning Text="Flow.gh template not found on X: drive or repo — template skipped" Condition="'$(_TemplateSrc)' == ''" />
   </Target>
 </Project>

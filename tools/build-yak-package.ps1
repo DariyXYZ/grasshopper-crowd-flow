@@ -60,16 +60,18 @@ if (Test-Path $LicenseSrc) {
 }
 
 # Include Flow.gh template so the Open Flow Template component works after Yak install
-# Yak puts contents at %APPDATA%\Grasshopper\Libraries\CrowdFlow\<version>\
-# DLL is in <version>\net8.0\ so ../templates resolves to <version>\templates\
-$TemplateSrc = Join-Path $RepoRoot "tests\grasshopper\crowd\flow-demo\Flow.gh"
-if (Test-Path $TemplateSrc) {
+# Primary source: X:\ master file. Fallback: repo tests\ copy. Output always named Flow.gh.
+$TemplateSrcMaster = "X:\CompDesign_Projects\Library\crowd_flow\test_files\FlowTemplate.gh"
+$TemplateSrcRepo   = Join-Path $RepoRoot "tests\grasshopper\crowd\flow-demo\Flow.gh"
+$TemplateSrc = if (Test-Path $TemplateSrcMaster) { $TemplateSrcMaster } elseif (Test-Path $TemplateSrcRepo) { $TemplateSrcRepo } else { $null }
+
+if ($TemplateSrc) {
     $TemplateDir = Join-Path $DistRoot "templates"
     if (-not (Test-Path $TemplateDir)) { New-Item -ItemType Directory $TemplateDir | Out-Null }
-    Copy-Item $TemplateSrc -Destination $TemplateDir -Force
-    Write-Host "  templates/Flow.gh copied" -ForegroundColor Gray
+    Copy-Item $TemplateSrc -Destination (Join-Path $TemplateDir "Flow.gh") -Force
+    Write-Host "  templates/Flow.gh copied from $TemplateSrc" -ForegroundColor Gray
 } else {
-    Write-Warning "Flow.gh not found at $TemplateSrc - template will be missing from Yak package"
+    Write-Warning "Flow.gh template not found on X: drive or repo - template will be missing from Yak package"
 }
 
 $ManifestPath = Join-Path $DistRoot "manifest.yml"

@@ -1,5 +1,6 @@
 using Crowd.Models;
 using Rhino.Geometry;
+using RhinoPoint = Rhino.Geometry.Point;
 
 namespace GrasshopperComponents.Utilities;
 
@@ -64,7 +65,7 @@ internal static class CrowdExportGeometryExtraction
 
         foreach (CrowdSource source in model.Sources)
         {
-            geometry.Add(new Point(source.Location));
+            geometry.Add(new RhinoPoint(source.Location));
         }
 
         foreach (CrowdExit exit in model.Exits)

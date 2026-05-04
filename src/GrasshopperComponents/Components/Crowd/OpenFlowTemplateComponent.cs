@@ -10,20 +10,13 @@ using System.Windows.Forms;
 
 namespace GrasshopperComponents.Components.Crowd;
 
-/// <summary>
-/// Button component that opens the bundled Flow.gh crowd simulation starter template.
-/// Templates are resolved relative to the plugin DLL so the path works for both
-/// local deploy and Yak versioned installs without hard-coded paths.
-/// </summary>
 public sealed class OpenFlowTemplateComponent : IndGhComponent
 {
-    private const string TemplateFileName = "Flow.gh";
-
     public OpenFlowTemplateComponent()
         : base(
             "Open Flow Template",
             "Template",
-            "Opens the Crowd Flow starter template (Flow.gh).\nClick the button on the component face.",
+            "Opens the Crowd Flow starter template. Click the button to open.",
             "Crowd Flow",
             "Crowd")
     {
@@ -33,45 +26,25 @@ public sealed class OpenFlowTemplateComponent : IndGhComponent
 
     protected override bool IsDeveloperOnly => false;
 
-    protected override System.Drawing.Bitmap? Icon => Properties.Resources.CrowdTemplate;
+    protected override Bitmap? Icon => Properties.Resources.CrowdTemplate;
 
-    protected override GH_Exposure DefaultExposure => GH_Exposure.secondary;
+    protected override GH_Exposure DefaultExposure => GH_Exposure.primary;
 
-    public override void CreateAttributes()
-    {
-        m_attributes = new OpenFlowTemplateAttributes(this);
-    }
+    public override void CreateAttributes() => m_attributes = new ButtonAttributes(this);
 
-    protected override void RegisterInputParams(GH_InputParamManager pManager)
-    {
-        // No inputs — launcher component
-    }
+    protected override void RegisterInputParams(GH_InputParamManager pManager) { }
 
-    protected override void RegisterOutputParams(GH_OutputParamManager pManager)
-    {
-        pManager.AddTextParameter("Template Path", "P", "Path to the opened template file.", GH_ParamAccess.item);
-    }
+    protected override void RegisterOutputParams(GH_OutputParamManager pManager) { }
 
-    protected override void SolveInstance(IGH_DataAccess DA)
-    {
-        var path = FindTemplatePath();
-        if (path == null)
-        {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
-                $"{TemplateFileName} not found. Expected at: {GetTemplatesDirectory()}");
-            return;
-        }
-        DA.SetData(0, path);
-    }
+    protected override void SolveInstance(IGH_DataAccess DA) { }
 
     internal void OpenTemplate()
     {
-        var path = FindTemplatePath();
+        string? path = FindTemplatePath();
         if (path == null)
         {
             MessageBox.Show(
-                $"{TemplateFileName} not found.\nExpected directory: {GetTemplatesDirectory()}\n\n" +
-                "Run the Crowd Flow installer to restore template files.",
+                "Flow template not found.\nRun the deploy or install the plugin first.",
                 "Crowd Flow",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
@@ -81,114 +54,82 @@ public sealed class OpenFlowTemplateComponent : IndGhComponent
         try
         {
             var io = new GH_DocumentIO();
-            if (!io.Open(path))
+            if (io.Open(path))
             {
-                MessageBox.Show(
-                    $"Failed to open template:\n{path}",
-                    "Crowd Flow",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-                return;
-            }
-
-            var doc = io.Document;
-            if (doc == null)
-                return;
-
-            var server = Instances.DocumentServer;
-            if (server == null)
-                return;
-
-            server.AddDocument(doc);
-
-            if (Instances.ActiveCanvas != null)
-            {
-                Instances.ActiveCanvas.Document = doc;
-                Instances.ActiveCanvas.Refresh();
+                var doc = io.Document;
+                if (doc != null)
+                {
+                    Instances.DocumentServer?.AddDocument(doc);
+                    if (Instances.ActiveCanvas != null)
+                    {
+                        Instances.ActiveCanvas.Document = doc;
+                        Instances.ActiveCanvas.Refresh();
+                    }
+                }
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                $"Error opening template:\n{ex.Message}",
-                "Crowd Flow",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            MessageBox.Show(ex.Message, "Crowd Flow", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-    }
-
-    /// <summary>
-    /// Returns the templates directory. Checks relative to the plugin DLL first
-    /// (works for both local deploy and Yak versioned installs), then falls back
-    /// to the AppData CrowdFlow root.
-    /// </summary>
-    private static string GetTemplatesDirectory()
-    {
-        // Local deploy:  %APPDATA%\Grasshopper\Libraries\CrowdFlow\net8.0\  -> ../templates
-        // Yak install:   %APPDATA%\Grasshopper\Libraries\CrowdFlow\0.1.3.0\net8.0\ -> ../templates
-        var assemblyDir = Path.GetDirectoryName(typeof(OpenFlowTemplateComponent).Assembly.Location);
-        if (assemblyDir != null)
-        {
-            var candidate = Path.GetFullPath(Path.Combine(assemblyDir, "..", "templates"));
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Grasshopper", "Libraries", "CrowdFlow", "templates");
     }
 
     private static string? FindTemplatePath()
     {
-        var path = Path.Combine(GetTemplatesDirectory(), TemplateFileName);
-        return File.Exists(path) ? path : null;
-    }
-
-    private sealed class OpenFlowTemplateAttributes : GH_ComponentAttributes
-    {
-        private const int ButtonHeight = 22;
-        private const string ButtonText = "Open Template";
-        private RectangleF _buttonBounds;
-
-        public OpenFlowTemplateAttributes(OpenFlowTemplateComponent owner)
-            : base(owner)
+        // 1. Relative to plugin DLL — works for both local deploy and Yak versioned installs.
+        // Yak puts DLL in <version>\net8.0\, templates land in <version>\templates\.
+        string? pluginDir = Path.GetDirectoryName(typeof(OpenFlowTemplateComponent).Assembly.Location);
+        if (!string.IsNullOrEmpty(pluginDir))
         {
+            string candidate = Path.GetFullPath(Path.Combine(pluginDir, "..", "templates", "Flow.gh"));
+            if (File.Exists(candidate)) return candidate;
         }
 
-        private OpenFlowTemplateComponent TemplateOwner => (OpenFlowTemplateComponent)Owner;
+        // 2. AppData CrowdFlow root (local deploy target).
+        string appData = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Grasshopper", "Libraries", "CrowdFlow", "templates", "Flow.gh");
+        return File.Exists(appData) ? appData : null;
+    }
+
+    private sealed class ButtonAttributes : GH_ComponentAttributes
+    {
+        private RectangleF _buttonRect;
+
+        public ButtonAttributes(OpenFlowTemplateComponent owner) : base(owner) { }
 
         protected override void Layout()
         {
             base.Layout();
-            var bounds = Bounds;
-            bounds.Height += ButtonHeight;
-            Bounds = bounds;
-            _buttonBounds = new RectangleF(
-                Bounds.Left,
-                Bounds.Bottom - ButtonHeight,
-                Bounds.Width,
-                ButtonHeight);
+            var b = Bounds;
+            if (b.Width < 160f)
+            {
+                float dx = 160f - b.Width;
+                b.X -= dx / 2f;
+                b.Width = 160f;
+            }
+            b.Height += 24;
+            Bounds = b;
+            _buttonRect = new RectangleF(b.X + 3, b.Bottom - 26, b.Width - 6, 22);
         }
 
         protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
         {
             base.Render(canvas, graphics, channel);
-            if (channel != GH_CanvasChannel.Objects)
-                return;
+            if (channel != GH_CanvasChannel.Objects) return;
 
-            var rect = GH_Convert.ToRectangle(_buttonBounds);
-            var capsule = GH_Capsule.CreateTextCapsule(
-                rect, rect, GH_Palette.Black, ButtonText, 2, 0);
-            capsule.Render(graphics, Selected, Owner.Locked, false);
-            capsule.Dispose();
+            var button = GH_Capsule.CreateTextCapsule(
+                _buttonRect, _buttonRect,
+                GH_Palette.Black, "Open Template", 2, 0);
+            button.Render(graphics, Selected, Owner.Locked, false);
+            button.Dispose();
         }
 
         public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
         {
-            if (e.Button == MouseButtons.Left && _buttonBounds.Contains(e.CanvasLocation))
+            if (e.Button == MouseButtons.Left && _buttonRect.Contains(e.CanvasLocation))
             {
-                TemplateOwner.OpenTemplate();
+                ((OpenFlowTemplateComponent)Owner).OpenTemplate();
                 return GH_ObjectResponse.Handled;
             }
             return base.RespondToMouseDown(sender, e);
