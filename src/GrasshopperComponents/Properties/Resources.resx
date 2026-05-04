@@ -84,4 +84,7 @@
   <data name="CrowdExportReport" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\CrowdExportReport.png;System.Drawing.Bitmap, System.Drawing</value>
   </data>
+  <data name="CrowdTemplate" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\CrowdTemplate.png;System.Drawing.Bitmap, System.Drawing</value>
+  </data>
 </root>

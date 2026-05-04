@@ -7,7 +7,7 @@
     <Company>DariyXYZ</Company>
     <Authors>DariyXYZ</Authors>
     <Description>Grasshopper crowd simulation plugin with trajectory output and heatmap mesh generation for Rhino 8.</Description>
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
 
@@ -69,5 +69,21 @@
           Retries="3"
           RetryDelayMilliseconds="250"
           Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' != '' and '$(CrowdFlowDeployRoot)' != ''" />
+  </Target>
+
+  <!-- Deploy templates alongside the plugin (framework-agnostic, only once on net8.0) -->
+  <Target Name="DeployFlowTemplate" AfterTargets="CreateGhaArtifact"
+          Condition="'$(DeployToGrasshopper)' == 'true' and '$(TargetFramework)' == 'net8.0' and '$(CrowdFlowDeployRoot)' != ''">
+    <PropertyGroup>
+      <_TemplateSrc>$(MSBuildThisFileDirectory)..\..\tests\grasshopper\crowd\flow-demo\Flow.gh</_TemplateSrc>
+      <_TemplateDeployDir>$(CrowdFlowDeployRoot)\templates</_TemplateDeployDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(_TemplateDeployDir)" />
+    <Copy SourceFiles="$(_TemplateSrc)"
+          DestinationFolder="$(_TemplateDeployDir)"
+          SkipUnchangedFiles="false"
+          Condition="Exists('$(_TemplateSrc)')" />
+    <Message Importance="high" Text="Deployed Flow.gh template to $(_TemplateDeployDir)" />
+    <Warning Text="Flow.gh template source not found: $(_TemplateSrc)" Condition="!Exists('$(_TemplateSrc)')" />
   </Target>
 </Project>

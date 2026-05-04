@@ -49,4 +49,5 @@ internal class Resources
     internal static System.Drawing.Bitmap CrowdSource => GetBitmap("CrowdSource");
     internal static System.Drawing.Bitmap CrowdExportImage => GetBitmap("CrowdExportImage");
     internal static System.Drawing.Bitmap CrowdExportReport => GetBitmap("CrowdExportReport");
+    internal static System.Drawing.Bitmap CrowdTemplate => GetBitmap("CrowdTemplate");
 }

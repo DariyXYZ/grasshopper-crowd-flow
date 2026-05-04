@@ -59,6 +59,19 @@ if (Test-Path $LicenseSrc) {
     Copy-Item $LicenseSrc -Destination $MiscDir -Force
 }
 
+# Include Flow.gh template so the Open Flow Template component works after Yak install
+# Yak puts contents at %APPDATA%\Grasshopper\Libraries\CrowdFlow\<version>\
+# DLL is in <version>\net8.0\ so ../templates resolves to <version>\templates\
+$TemplateSrc = Join-Path $RepoRoot "tests\grasshopper\crowd\flow-demo\Flow.gh"
+if (Test-Path $TemplateSrc) {
+    $TemplateDir = Join-Path $DistRoot "templates"
+    if (-not (Test-Path $TemplateDir)) { New-Item -ItemType Directory $TemplateDir | Out-Null }
+    Copy-Item $TemplateSrc -Destination $TemplateDir -Force
+    Write-Host "  templates/Flow.gh copied" -ForegroundColor Gray
+} else {
+    Write-Warning "Flow.gh not found at $TemplateSrc - template will be missing from Yak package"
+}
+
 $ManifestPath = Join-Path $DistRoot "manifest.yml"
 if (-not (Test-Path $ManifestPath)) {
     throw "manifest.yml not found at $ManifestPath - create it before running this script"
