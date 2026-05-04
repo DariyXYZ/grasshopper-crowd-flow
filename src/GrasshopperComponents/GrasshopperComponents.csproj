@@ -7,7 +7,7 @@
     <Company>DariyXYZ</Company>
     <Authors>DariyXYZ</Authors>
     <Description>Grasshopper crowd simulation plugin with trajectory output and heatmap mesh generation for Rhino 8.</Description>
-    <Version>0.1.3</Version>
+    <Version>0.1.3.1</Version>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
 
