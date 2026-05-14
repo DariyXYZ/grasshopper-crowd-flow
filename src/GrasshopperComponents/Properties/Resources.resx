@@ -72,6 +72,9 @@
   <data name="CrowdRun" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\CrowdRun.png;System.Drawing.Bitmap, System.Drawing</value>
   </data>
+  <data name="CrowdPeoplePreview" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\CrowdPeoplePreview.png;System.Drawing.Bitmap, System.Drawing</value>
+  </data>
   <data name="CrowdSource" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\CrowdSource.png;System.Drawing.Bitmap, System.Drawing</value>
   </data>

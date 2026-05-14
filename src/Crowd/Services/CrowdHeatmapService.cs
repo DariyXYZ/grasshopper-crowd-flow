@@ -230,7 +230,7 @@ public static class CrowdHeatmapService
             _ => normalizeByFrameCount ? "Occupancy, normalized" : "Occupancy, agent-s/cell"
         };
 
-        return presentationMode ? $"{title} (presentation)" : title;
+        return title;
     }
 
     private static double[,] Smooth(double[,] values, CrowdGrid grid)
